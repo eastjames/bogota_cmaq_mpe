@@ -84,10 +84,10 @@ def make_scatter( obx, modx, var, fname):
     ax.set_aspect('equal','box')
     #plt.style.context('ggplot')
 
-    fig.savefig('%s.%s' % (fname,frmt), format=frmt, bbox_inches='tight')
+    fig.savefig('../figs/%s.%s' % (fname,frmt), format=frmt, bbox_inches='tight')
     plt.close()
 
-def make_stat_plots(stats,avstats,obx,metric,var,avtime='hourly'):
+def make_stat_plots(stats,avstats,obx,metric,var,avtime='hourly',o3mda8=None):
     '''
     stats = stats xarray
     avstats: Must be for proper averaging time!
@@ -98,7 +98,7 @@ def make_stat_plots(stats,avstats,obx,metric,var,avtime='hourly'):
     '''
     avtime = avtime.lower()
     metric = metric.upper()
-    if avtime not in ('hourly', '24h'):
+    if avtime not in ('hourly', '24h', 'mda8'):
         raise ValueError("avtime must be 'hourly', '24h', or 'mda8', %s was given" % \
                          (avtime))
 
@@ -113,29 +113,40 @@ def make_stat_plots(stats,avstats,obx,metric,var,avtime='hourly'):
     fig, ax = plt.subplots(1)
     
     colors = colorlist()
-    fs=16 #fontsize
+    fs=10 #fontsize
 
     for i, site in enumerate(stats.site):
         # get mean obs if it's not empty
         if not np.isnan(obx[var][:,i]).all():
 #            x = np.mean(obx[var][:,i])
-            x = np.nanmax(obx[var][:,i])
+            if var == 'O3' and metric == 'mda8':
+                if o3mda8 == None:
+                    raise ValueError('Argument o3mda8 must be specified for'+\
+                                      'ozone MDA8 plotting. No argument was given.')
+                x = np.nanmax(o3mda8[:,i])
+            else:
+                x = np.nanmax(obx[var][:,i])
             # get nme value
             if avtime in ('24h', 'mda8'):
                 avtime = '24h/mda8'
             y = stats[metric].loc[site.values,var,avtime]
             if not np.isnan(y):
                 ax.scatter( x, y, marker='o', c=colors[i], edgecolor='black',\
-                            s=250, lw = 1, label=site.values)
+                            s=150, lw = 1, label=site.values)
                 
     criteria = 0
     goal = 0
     ymin, ymax = ax.get_ylim()
-    
+
     # Set max x val for plotting mean of all sites
-    x = avstats[var][6]
-        
+    if var == 'O3':
+        x = np.nanmax(o3mda8)
+    else:
+        x = avstats[var][6]
+
     # Set criteria & goal lines, y lims if applicable, y val for mean of all sites
+    del(goal)
+    del(criteria)
     if metric == 'NME':
         y = avstats[var][1]
         ymin = 0
@@ -161,7 +172,7 @@ def make_stat_plots(stats,avstats,obx,metric,var,avtime='hourly'):
         print('MFE y = %f' % y)
         ymin = 0
         ymax = 200
-        if var == 'PM10' or 'PM25':
+        if var in ('PM10', 'PM25'):
             criteria = 75
             goal = 50
     elif metric == 'MFB':
@@ -169,7 +180,7 @@ def make_stat_plots(stats,avstats,obx,metric,var,avtime='hourly'):
         print('MFB y = %f' % y)
         ymin = -200
         ymax = 200
-        if var == 'PM10' or 'PM25':
+        if var in ('PM10','PM25'):
             criteria = 60
             goal = 30
     elif metric == 'R2':
@@ -190,6 +201,7 @@ def make_stat_plots(stats,avstats,obx,metric,var,avtime='hourly'):
     ax.annotate('All', (x, y), fontsize=fs)
     xmin, xmax = ax.get_xlim()
     lw = 1
+
     if var in ('PM25', 'O3'):
         ax.plot([xmin, xmax],[criteria, criteria],'k-', linewidth=lw, \
                 label='criteria')
@@ -199,16 +211,21 @@ def make_stat_plots(stats,avstats,obx,metric,var,avtime='hourly'):
             ax.plot([xmin, xmax],[-goal, -goal],'k--', linewidth=lw)
     else:
         ax.plot([xmin, xmax],[0,0],'k-', linewidth=lw)
+
     ax.set(xlabel='max obs (%s)'%(units), ylabel='%s (%%)'%(metric), \
            title=obx[var].name, ylim=[ymin,ymax], xlim=[xmin,xmax] )
+
     ax.legend(loc='center left', bbox_to_anchor=(1.01,0.5),\
               frameon=False, fontsize=fs)
+
     ax.title.set_fontsize(fs)
     ax.xaxis.label.set_fontsize(fs)
     ax.yaxis.label.set_fontsize(fs)
     ax.tick_params(labelsize=fs)
-    fig.savefig('%s.%s' % (fname,frmt), format=frmt, bbox_inches='tight')
+    fig.savefig('../figs/%s.%s' % (fname,frmt), format=frmt, bbox_inches='tight')
     plt.close()
+    del(goal)
+    del(criteria)
 
 
 if __name__ == '__main__':
@@ -230,7 +247,7 @@ if __name__ == '__main__':
     avstats24 = mpe.stats_all_sites(obx24, modx24)
     make_scatter(obx,modx,'PM25', 'pm25scatter')
     make_scatter(obx24, modx24, 'PM25', 'pm25scatter24hr')
-    make_stat_plots(stats,avstats24,obx24,'MFE','PM25',avtime='24h')
+    m, o3mda8, o3mda8ake_stat_plots(stats,avstats24,obx24,'MFE','PM25',avtime='24h')
     make_stat_plots(stats,avstats24,obx24,'MFB','PM25',avtime='24h')
     make_stat_plots(stats,avstats,obx,'MFE','PM25',avtime='hourly')
     make_stat_plots(stats,avstats,obx,'MFB','PM25',avtime='hourly')

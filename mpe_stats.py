@@ -24,7 +24,7 @@ def get_obs(season=None, avtime=None):
     Add path to file
     '''
  
-    prefix = '../../observations/ground/' # Bezier
+    prefix = '../../../observations/ground/' # Bezier
 #    prefix = '/ncsu/volume1/fgarcia4/Bogota/observations/ground/' #Henry2
     #prefix = 'obs/' # James Macbook
     if season and avtime:
@@ -202,7 +202,7 @@ def pair_data(obs, modx, metx):
     return obx, modx, metx
 
 
-def calc_mda8(obx, modx):
+def calc_mda8(d):
     '''
     Calculate mda8 for O3
     observation and model dataset
@@ -212,8 +212,37 @@ def calc_mda8(obx, modx):
     
     # time adjustment so mda8 value references 1st hour in 
     # the rolling average
+    times_np = d.O3.time.values.copy()
+    times_pd = pd.to_datetime(times_np) - pd.Timedelta('7h')
+
+    o3a8 = d.O3.rolling(time=8, min_periods=6).mean()
+    o3a8 = o3a8.assign_coords(time=times_pd)
+    o3_mda8 = o3a8.resample(time='D').max(dim='time')
+    o3_mda8 = o3_mda8[1::] # Remove extra 1st max val b/c time shift
+
+    o3_mda8 = o3_mda8.assign_attrs({'units':'ppb'})
+    
+    # Try to assign sitenames. Will only work if observation dataset used.
+    try:
+        o3_mda8 = o3_mda8.assign_attrs({'SITENAMES':d.SITENAMES})
+    except:
+        pass
+
+    return o3_mda8
+
+'''
+def calc_mda8(obx, modx):
+    ''
+    #Calculate mda8 for O3
+    #observation and model dataset
+    #borrowed from http://danielrothenberg.com/\
+    #gcpy/examples/timeseries/calc_mda8_timeseries_xarray.html
+    ''
+    
+    # time adjustment so mda8 value references 1st hour in 
+    # the rolling average
     times_np = modx.O3.time.values.copy()
-    times_pd = pd.to_datetime(times_np) - pd.Timedelta('8h')
+    times_pd = pd.to_datetime(times_np) - pd.Timedelta('7h')
 
     o3a8mod = modx.O3.rolling(time=8, min_periods=6).mean()
     o3a8mod = o3a8mod.assign_coords(time=times_pd)
@@ -230,7 +259,7 @@ def calc_mda8(obx, modx):
     o3_mda8_ob = o3_mda8_ob.assign_attrs({'SITENAMES':obx.SITENAMES})
 
     return o3_mda8_ob, o3_mda8_mod
-
+'''
 
 def calc_stats(obx, modx):
 
@@ -248,11 +277,12 @@ def calc_stats(obx, modx):
 
     #calc mda8 for ozone only
 #    print(modx.time)
-    o3_mda8_ob, o3_mda8_mod = calc_mda8(obx, modx)
+    o3_mda8_ob = calc_mda8(obx)
+    o3_mda8_mod = calc_mda8(modx)
 #    print(modx.time)
     
     mda8obm = ma.masked_invalid(o3_mda8_ob.values) 
-    mda8modm = ma.array(o3_mda8_mod.values, mask=mda8obm)
+    mda8modm = ma.array(o3_mda8_mod.values, mask=mda8obm.mask)
 
     # do stat calcs at sites
     for i in range(len(sites)):
@@ -317,6 +347,7 @@ def stats_all_sites( obx, modx ):
         arrm = np.concatenate(modx[var].values)
         mask = np.isnan(arro)
         arro, arrm = ma.array(arro, mask=mask), ma.array(arrm, mask=mask)
+        #if not arro.count() == 0: 
         nme = calc_NME( arrm, arro )
         nmb = calc_NMB( arrm, arro )
         mfe = calc_MFE( arrm, arro )
@@ -337,7 +368,8 @@ def plot_scatter( obx, modx ):
         mp.make_scatter(obx, modx, var, fname)
         # 24 hour avg
         if var == 'O3':
-            o3_mda8_ob, o3_mda8_mod = calc_mda8(obx, modx)
+            o3_mda8_ob = calc_mda8(obx)
+            o3_mda8_mod = calc_mda8(modx)
             fname24 = 'O3_scatter_mda8'
             mp.make_scatter(o3_mda8_ob, o3_mda8_mod, var, fname24)
         else:
@@ -354,6 +386,7 @@ def plot_stats( obx, modx ):
     obx24, modx24 = make_24h_avg(obx, modx)
     avstats = stats_all_sites( obx, modx )
     avstats24 = stats_all_sites( obx24, modx24)
+    o3mda8 = calc_mda8(obx)
     for var in stats.species.values:
 #        for metric in ['NME', 'NMB', 'R2']:
         for metric in ['NME', 'NMB','MFB','MFE','R2']:
@@ -366,7 +399,7 @@ def plot_stats( obx, modx ):
             if var=='O3':
                 #stuff
                 if not np.isnan( stats[metric].loc[:,var,avtime] ).all():
-                    mp.make_stat_plots(stats, avstats24, obx24, metric, var, 'mda8')               
+                    mp.make_stat_plots(stats, avstats24, obx, metric, var, 'mda8', o3mda8)               
             else:
                 if not np.isnan( stats[metric].loc[:,var,avtime] ).all():
                     mp.make_stat_plots(stats, avstats24, obx24, metric, var, '24h')
