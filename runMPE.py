@@ -2,10 +2,11 @@ import glob
 import mpe_stats as mpe
 import make_plots as mp
 import time
+import os
 
 start = time.time()
 print('start')
-
+os.system('mkdir -p ../figs')
 # get cmaq and met files
 #henry2
 #cfiles = glob.glob('../../data_out/bc2014v3/d04/2014-01-0[1234567]/ \
@@ -20,9 +21,9 @@ print('start')
 #mfiles = glob.glob('METCRO2D_WRFd04v4n_2014-01-0[12]')
 #afiles = glob.glob('CCTM_D502a_Linux3_x86_64intel.AERODIAM.BOGOTA_bc2014v3_2014010[12].nc')
 
-cfiles = glob.glob('../../data_out/bc2014v2/d04/2014-0[123]-??/CCTM_D502a_Linux3_x86_64intel.ACONC.BOGOTA_20140[123]??.nc')
-afiles = glob.glob('../../data_out/bc2014v2/d04/2014-0[123]-??/CCTM_D502a_Linux3_x86_64intel.AERODIAM.BOGOTA_20140[123]??.nc')
-mfiles = glob.glob('../../data_in/mcip/v4n/d04/METCRO2D_WRFd04v4n_2014-0[123]-??')
+cfiles = glob.glob('../../../data_out/bc2014v2/d04/2014-0[123]-??/CCTM_D502a_Linux3_x86_64intel.ACONC.BOGOTA_20140[123]??.nc')
+afiles = glob.glob('../../../data_out/bc2014v2/d04/2014-0[123]-??/CCTM_D502a_Linux3_x86_64intel.AERODIAM.BOGOTA_20140[123]??.nc')
+mfiles = glob.glob('../../../data_in/mcip/v4n/d04/METCRO2D_WRFd04v4n_2014-0[123]-??')
 
 #cfiles = glob.glob('../../data_out/bc2014v3/d04/2014-0[123]-??/CCTM_D502a_Linux3_x86_64intel.ACONC.BOGOTA_20140[123]??.nc')
 #cfiles = glob.glob('../../data_out/bc2014v3/d04/2014-01-0[1234]/CCTM_D502a_Linux3_x86_64intel.ACONC.BOGOTA_2014010[1234].nc')
