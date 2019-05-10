@@ -119,8 +119,9 @@ def make_stat_plots(stats,avstats,obx,metric,var,avtime='hourly',o3mda8=None):
         # get mean obs if it's not empty
         if not np.isnan(obx[var][:,i]).all():
 #            x = np.mean(obx[var][:,i])
-            if var == 'O3' and metric == 'mda8':
-                if o3mda8 == None:
+            if var == 'O3' and avtime != 'hourly':
+                print('MADE IT HEREEEEEEEEEEEEEE')
+                if o3mda8 is None:
                     raise ValueError('Argument o3mda8 must be specified for'+\
                                       'ozone MDA8 plotting. No argument was given.')
                 x = np.nanmax(o3mda8[:,i])
@@ -138,15 +139,13 @@ def make_stat_plots(stats,avstats,obx,metric,var,avtime='hourly',o3mda8=None):
     goal = 0
     ymin, ymax = ax.get_ylim()
 
-    # Set max x val for plotting mean of all sites
-    if var == 'O3':
+    # Set max x val for plotting max of all sites
+    if var == 'O3' and avtime == '24h/mda8':
         x = np.nanmax(o3mda8)
     else:
         x = avstats[var][6]
 
     # Set criteria & goal lines, y lims if applicable, y val for mean of all sites
-    del(goal)
-    del(criteria)
     if metric == 'NME':
         y = avstats[var][1]
         ymin = 0
@@ -196,6 +195,9 @@ def make_stat_plots(stats,avstats,obx,metric,var,avtime='hourly',o3mda8=None):
     else:
         raise ValueError("Invalid metric, expected 'NME','NMB', 'MFE','MFB'\
                          or 'R2'. Received %s" % (metric))
+    print('Var = %s, metric = %s, avtime = %s' % (var,metric,avtime))
+    print('Max x is: ')
+    print(x)
     print('ALL MARKER = %f, %f' % (x,y))
     ax.scatter( x, y, marker='D', c='black', s=50, label='All')
     ax.annotate('All', (x, y), fontsize=fs)
