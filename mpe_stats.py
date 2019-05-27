@@ -7,8 +7,12 @@ import pandas as pd
 
 def ob_row_col():
     # obcol and obrow are 14 observation site locations
-    obcol = [ 32, 36, 28, 38, 29, 40, 27, 36, 37, 32, 36, 35, 30, 42 ]	
-    obrow = [ 44, 34, 27, 33, 36, 48, 30, 38, 31, 31, 25, 46, 25, 40 ]
+    #obcol = [ 32, 36, 28, 38, 29, 40, 27, 36, 37, 32, 36, 35, 30, 42 ]	
+    #obrow = [ 44, 34, 27, 33, 36, 48, 30, 38, 31, 31, 25, 46, 25, 40 ]
+
+    # Without Suba
+    obcol = [ 32, 36, 28, 38, 29, 40, 27, 36, 37, 32, 36, 30, 42 ]	
+    obrow = [ 44, 34, 27, 33, 36, 48, 30, 38, 31, 31, 25, 25, 40 ]
     return obrow, obcol
 
 def get_spcs():
@@ -40,6 +44,17 @@ def get_obs(season=None, avtime=None):
     f = xr.open_mfdataset(filename)
     f = f.rename({'PM10STD':'PM10', 'PM25STD':'PM25'})
     f.load()
+
+    # Remove Suba
+    l = [f.isel(points=i) for i in range(14)]
+    l.remove(11)
+    f = xr.concat(l, dim='points')
+    separator=';'
+    sites = f.SITENAMES.split(separator)
+    sites.remove('Suba')
+    sites = separator.join(sites)
+    f.attrs.update({'SITENAMES':sites})
+
     return f
 	
 def get_met(filelist):
@@ -181,12 +196,14 @@ def pair_data(obs, modx, metx):
 #    nsites = len(obcol)
 
     shour, nhours = get_start_date(modx)
-#    print('start = %d, number of hours = %d' % (shour, nhours))
+    print('start = %d, number of hours = %d' % (shour, nhours))
 
     # get all obs vals and create xarray dataset for them
     obx = xr.merge([obs[spc].sel(TSTEP=slice(shour,shour+nhours)) for spc in obspcs])
+    print(obx)
     obx = obx.assign_coords(time=modx.time)
     obx = obx.rename({'TSTEP':'time', 'points':'site'})
+    obx = obx.transpose( 'time', 'site' )
  
     metx.load()
     modx.load()
@@ -206,7 +223,7 @@ def calc_mda8(d):
     '''
     Calculate mda8 for O3
     observation and model dataset
-    borrowed from http://danielrothenberg.com/\
+    borrowed from http://danielrothenberg.com/
     gcpy/examples/timeseries/calc_mda8_timeseries_xarray.html
     '''
     
@@ -218,7 +235,8 @@ def calc_mda8(d):
     o3a8 = d.O3.rolling(time=8, min_periods=6).mean()
     o3a8 = o3a8.assign_coords(time=times_pd)
     o3_mda8 = o3a8.resample(time='D').max(dim='time')
-    o3_mda8 = o3_mda8[1::] # Remove extra 1st max val b/c time shift
+    length = len(o3_mda8.time)
+    o3_mda8 = o3_mda8.isel(time=slice(1,length)) # Remove extra 1st max val b/c time shift
 
     o3_mda8 = o3_mda8.assign_attrs({'units':'ppb'})
     
@@ -230,36 +248,6 @@ def calc_mda8(d):
 
     return o3_mda8
 
-'''
-def calc_mda8(obx, modx):
-    ''
-    #Calculate mda8 for O3
-    #observation and model dataset
-    #borrowed from http://danielrothenberg.com/\
-    #gcpy/examples/timeseries/calc_mda8_timeseries_xarray.html
-    ''
-    
-    # time adjustment so mda8 value references 1st hour in 
-    # the rolling average
-    times_np = modx.O3.time.values.copy()
-    times_pd = pd.to_datetime(times_np) - pd.Timedelta('7h')
-
-    o3a8mod = modx.O3.rolling(time=8, min_periods=6).mean()
-    o3a8mod = o3a8mod.assign_coords(time=times_pd)
-    o3_mda8_mod = o3a8mod.resample(time='D').max(dim='time')
-    o3_mda8_mod = o3_mda8_mod[1::] # Remove extra 1st max val b/c time shift
-
-    o3a8ob = obx.O3.rolling(time=8, min_periods=6).mean()
-    o3a8ob = o3a8ob.assign_coords(time=times_pd)
-    o3_mda8_ob = o3a8ob.resample(time='D').max(dim='time')
-    o3_mda8_ob = o3_mda8_ob[1::] # Remove extra 1st max val b/c time shift
-
-    o3_mda8_ob = o3_mda8_ob.assign_attrs({'units':'ppb'})
-    o3_mda8_mod = o3_mda8_mod.assign_attrs({'units':'ppb'})
-    o3_mda8_ob = o3_mda8_ob.assign_attrs({'SITENAMES':obx.SITENAMES})
-
-    return o3_mda8_ob, o3_mda8_mod
-'''
 
 def calc_stats(obx, modx):
 
@@ -301,7 +289,7 @@ def calc_stats(obx, modx):
             if obspc == 'O3':
                 ovalmasked = ma.masked_where(ovalmasked<=40,ovalmasked)
                 mvalmasked = ma.array(mvalmasked, mask=ovalmasked.mask)
-                
+            
             r2data[i,obspcs.index(obspc),0] = calc_r2(mvalmasked, ovalmasked)
             nmedata[i,obspcs.index(obspc),0] = calc_NME(mvalmasked, ovalmasked)
             nmbdata[i,obspcs.index(obspc),0] = calc_NMB(mvalmasked, ovalmasked)
@@ -328,8 +316,8 @@ def calc_stats(obx, modx):
                         'R2': (['site','species','averagingtime'], r2data),     \
                         'MFE': (['site','species','averagingtime'], mfedata),   \
                         'MFB': (['site','species','averagingtime'], mfbdata)},  \
-              coords = {'site': sites, 'species': obspcs, \
-                        'averagingtime': ['hourly','24h/mda8']})
+                       coords = {'site': sites, 'species': obspcs, \
+                                 'averagingtime': ['hourly','24h/mda8']})
 
     return stats
 
@@ -420,7 +408,10 @@ def get_start_date(cmaq):
     Returns length of model output in hours (nhours)
     '''
     sdate = cmaq.SDATE
-    shour = sdate - 2014000 - 1
+    if sdate > 2014273: #OND
+        shour = sdate - 2014273 - 1
+    else: #JFM
+        shour = sdate - 2014000 - 1
     shour = shour * 24
     nhours = len(cmaq.time)
     return shour, nhours
