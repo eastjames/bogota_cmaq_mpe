@@ -30,7 +30,7 @@ def get_obs(season=None, avtime=None):
  
     prefix = '../../../observations/ground/' # Bezier
 #    prefix = '/ncsu/volume1/fgarcia4/Bogota/observations/ground/' #Henry2
-    #prefix = 'obs/' # James Macbook
+#    prefix = '../obs/' # James Macbook
     if season and avtime:
         filename = prefix+'RMCAB_2014_' + season + '-' + avtime + '.nc'
     elif not season and avtime:
@@ -39,14 +39,14 @@ def get_obs(season=None, avtime=None):
         filename = prefix+'RMCAB_2014_' + season + '.nc'
     else:
         filename = prefix+'RMCAB_2014.nc'
-
+    print(filename)
     f = xr.open_mfdataset(filename)
     f = f.rename({'PM10STD':'PM10', 'PM25STD':'PM25'})
     f.load()
 
     # Remove Suba
     l = [f.isel(points=i) for i in range(14)]
-    l.remove(11)
+    l.pop(11)
     f = xr.concat(l, dim='points')
     separator=';'
     sites = f.SITENAMES.split(separator)
