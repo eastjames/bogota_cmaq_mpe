@@ -61,7 +61,7 @@ def pointplot( conc, spc, contour = False, points = True, filetype = 'pdf',\
         units = 'ug/m3'
     
     # Open observed dataset
-    fob = mpe.get_obs(season='OND', avtime='a24')
+    fob = mpe.get_obs(season='JFM', avtime='a24')
     # Get days matching model input
     shour, nhours = mpe.get_start_date(f)
     print(shour, nhours)

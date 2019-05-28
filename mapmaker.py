@@ -10,11 +10,11 @@ import mapgen
 import glob
 
 #conc = 'CCTM_D502a_Linux3_x86_64intel.ACONC.BOGOTA_bc2014v3_20140101.nc'
-spc = 'PM10'
+spc = 'PM25'
 contour = False
 points = True
-filename = 'PM10gridplot'
-title = 'PM10 OND grid plot'
+filename = spc+'gridplot'
+title = spc+' OND grid plot'
 
 #i = 1
 #c = str(i+1)
@@ -29,7 +29,7 @@ title = 'PM10 OND grid plot'
 #       'srccont.'+case+'.nc'
 #conc = 'CCTM_D502a_Linux3_x86_64intel.ACONC.BOGOTA_bc2014v3_20140103.nc'      
 #conc = '../../../data_out/bc2014v3/d04/2014-10-01/CCTM_D502a_Linux3_x86_64intel.ACONC.BOGOTA_20141001.nc'
-conc = glob.glob('../../../data_out/bc2014v3/d04/2014-1?-??/CCTM_D502a_Linux3_x86_64intel.ACONC.BOGOTA_20141???.nc')
+conc = glob.glob('../../../data_out/bc2014v3/d04/2014-0[123]-??/CCTM_D502a_Linux3_x86_64intel.ACONC.BOGOTA_20140[123]??.nc')
 #sc = sectors[i]
 #title = 'Contribution of '+sc+' to '+spc 
 
