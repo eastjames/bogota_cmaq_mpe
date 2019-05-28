@@ -38,43 +38,50 @@ def pointplot( conc, spc, contour = False, points = True, filetype = 'pdf',\
     filename = filename
     spc = spc
     
+    # Get AERODIAM file for PM aggregation
+    adflist = conc
+    if type(adflist) == str:
+        adflist = adflist.replace('ACONC','AERODIAM')
+    else:
+        adflist = [adflist[n].replace('ACONC','AERODIAM') for n in range(len(adflist))]
+    
     # Grid file used for lat/lon only. Date does not matter.
-    grid = 'GRIDCRO2D_WRFd04v4n_2014-01-07'
+    grid = '../../../data_in/mcip/v4n/d04/GRIDCRO2D_WRFd04v4n_2014-01-01'
     
     font = "helvetica" # {21,    "helvetica"}
     fontheight = 0.02
     
     # Open obs using xarray, open conc with Monet for aggregate PM spcs
     #f = nio.open_file(conc,"r")
-    f = cmaq.open_dataset(conc)
+    f = mpe.get_cmaq_gridded(conc, adflist)
     fgrid = xr.open_dataset(grid)
+    print(f[spc])
     units = f[spc].units
     if spc in ('PM25', 'PM10'):
         units = 'ug/m3'
     
-    
     # Open observed dataset
-    fob = mpe.get_obs(season='JFM', avtime='a24')
+    fob = mpe.get_obs(season='OND', avtime='a24')
     # Get days matching model input
     shour, nhours = mpe.get_start_date(f)
     print(shour, nhours)
     # subset observtion dataset
-    ind1 = math.floor(nhours/24)
-    obdata = fob[spc][0:ind1,:].squeeze()
+    ind1 = math.floor(shour/24)
+    ind2 = math.floor(nhours/24)
+    obdata = fob[spc][:, ind1:ind2].squeeze()
+    obdata = obdata.mean(dim='time')
     
     # get obs sites lats and lons
     oblat = fob['latitude'].values
     oblon = fob['longitude'].values
-    
-    
+
     # a numpy array of lat and lon
     lat = fgrid.variables["LAT"].values[0,0,:,:]
     lon = fgrid.variables["LON"].values[0,0,:,:]
     
-    # a numpy array of ACORS
-    #varobj = f.variables["ACORS"]
-    varobj = f.variables[spc].values
-    var = np.mean( varobj[:,0,:,:], 0 )
+    # make a numpy arraya to plot
+    varobj = f.variables[spc].mean(dim='time')
+    var = varobj.values
     print('shape = %s' % str(np.shape(var)))
     if spc == 'CO':
         var = var*1e-3
@@ -83,7 +90,6 @@ def pointplot( conc, spc, contour = False, points = True, filetype = 'pdf',\
         var = var*1e3
         units = obdata.units
         
-    
     # plot filled contour map
     res = ngl.Resources()
     res.nglFrame = False
@@ -109,7 +115,7 @@ def pointplot( conc, spc, contour = False, points = True, filetype = 'pdf',\
 #    res.cnFillPalette = 'MPL_jet'
 #    res.cnFillPalette = 'perc2_9lev'
 #    res.cnFillPalette = 'cmocean_deep'
-#    res.cnFillPalette = 'NCV_bright'
+    #res.cnFillPalette = 'NCV_bright'
     res.cnFillPalette = 'MPL_rainbow'
     
     # save colormap as array for use with points
@@ -162,7 +168,14 @@ def pointplot( conc, spc, contour = False, points = True, filetype = 'pdf',\
     res.cnLevelSelectionMode = "ManualLevels"	# manually set the contour 
                                                 #levels with the following 3 resources
     if points:
-        maxc = max( np.max( var ), np.max(obdata).values )
+        print('maxc = max( np.max( var ), np.max(obdata).values )')
+        print('np.max( var ) = ')
+        print(np.max(var))
+        print('np.max(obdata).values = ')
+        print(np.max(obdata).values)
+        maxc = max( np.max( var ), np.max(obdata).values ).item(0)
+        print('maxc = ')
+        print(type(maxc))
     else:
 #        maxc = np.max( var )
         maxc = 13.
@@ -194,7 +207,7 @@ def pointplot( conc, spc, contour = False, points = True, filetype = 'pdf',\
       
     
     # open shapefile
-    gisf = 'LocalidadesBogota.shp'
+    gisf = './gis/LocalidadesBogota.shp'
     shpf = nio.open_file(gisf,"r")
     gislon = np.ravel(shpf.variables['x'][:])
     gislat = np.ravel(shpf.variables['y'][:])
@@ -216,7 +229,10 @@ def pointplot( conc, spc, contour = False, points = True, filetype = 'pdf',\
             pmres = ngl.Resources()
             indices = np.linspace(start = 0, stop = clen-1, num = nintvls, dtype = int)
             ind = int( np.floor( n.values / res.cnLevelSpacingF) )
-            ind = indices[ind]
+            try:
+                ind = indices[ind]
+            except IndexError:
+                ind = indices[ind-1]
             print('ind = %d' % ind)
             print( '' )
             try:
