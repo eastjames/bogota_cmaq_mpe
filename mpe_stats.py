@@ -40,7 +40,6 @@ def get_obs(season=None, avtime=None):
     else:
         filename = prefix+'RMCAB_2014.nc'
 
-#    print(filename)
     f = xr.open_mfdataset(filename)
     f = f.rename({'PM10STD':'PM10', 'PM25STD':'PM25'})
     f.load()
@@ -113,6 +112,77 @@ def get_ad(filelist):
     
     return adx
 
+def get_cmaq_gridded(cfilelist, adflist):
+    '''
+    cfilelist = python list of ACONC filenames
+    adflist = list of AERODIAM files
+    returns a gridded cmaq object with important vars aggregated
+    '''
+    d = xr.open_mfdataset(cfilelist, concat_dim='TSTEP')
+    d = d.sel(LAY=0) # get only bottom layer
+
+    #obrow, obcol = ob_row_col()
+    obspcs, modspcs = get_spcs()
+    pmspcs = []
+    if ('PM10' in modspcs) or ('PM25' in modspcs):
+        pmspcs = pm.get_spcs()
+        if 'PM25' in modspcs:
+            pm_25 = True
+            modspcs.remove('PM25')
+        if 'PM10' in modspcs:
+            pm_10 = True
+            modspcs.remove('PM10')
+    allspcs = modspcs + pmspcs
+    
+    if 'NOx' in modspcs:
+        d['NOx'] = d.NO2 + d.NO
+        units = {'units':d.NO.units}
+        d['NOx'].attrs.update(units) #ppmV
+    
+    if pm_25 or pm_10:
+        advars = ['PM25AT','PM25AC', 'PM25CO']
+        flist = []
+        if type(adflist) == str:
+            flist.append(adflist)
+        else:
+            flist = adflist
+        f = xr.open_mfdataset(flist, concat_dim='TSTEP')
+        f = f.sel(LAY=0)
+        fvars = [ f[v] for v in advars ]
+        ad = xr.merge(fvars)
+        PM25, PM10 = pm.pm_total2(d, ad)
+        PM25 = PM25.to_dataset(name='PM25')
+        PM10 = PM10.to_dataset(name='PM10')
+        dset = xr.merge([d[var] for var in modspcs]+[PM25, PM10])
+        
+    #if type(cfilelist) == str:
+        #t1 = pd.to_datetime(cfilelist[-11:-3]) #YYYMMDD string from file name 
+    #else:
+        #t1 = pd.to_datetime(cfilelist[0][-11:-3]) #YYYMMDD string from file name
+    #dates = pd.date_range(start=t1,periods=len(d.TSTEP.values),freq='H')
+    #dset = dset.assign_coords(time=dates)
+    dset = dset.assign_attrs({'SDATE':d.SDATE})
+
+    # assign units
+    for v in dset.variables:
+        if v in list(d.variables):
+            dset[v] = dset[v].assign_attrs(units=d[v].units)
+    
+    #fix units
+    for v in ['SO2','O3','NOx']:
+        if v in modspcs:
+            dset[v] = dset[v]*1e3 #ppm to ppb
+            dset[v] = dset[v].assign_attrs(units='ppb') 
+    for v in ['PM25','PM10']:
+        if (v=='PM25' and pm_25) or (v=='PM10' and pm_10):
+            dset[v] = dset[v].assign_attrs(units='ug/m3')
+    
+    # Rename TSTEP dimension
+    dset = dset.rename({'TSTEP':'time'})
+ 
+    del(d)
+    
+    return dset
 
 def get_cmaq(cfilelist, adflist):
     '''
