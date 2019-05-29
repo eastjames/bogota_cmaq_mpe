@@ -15,7 +15,7 @@ def spacing(nintvls, maxc, clen):
     return maxl,lspc,minl
 
 
-def pointplot( conc, spc, contour = False, points = True, filetype = 'pdf',\
+def pointplot( conc, spc, season, contour = False, points = True, filetype = 'pdf',\
           filename = 'pointplot', title=False ):
     '''
     conc: string of file path(s). cctm output file(s). Averages across all files
@@ -37,7 +37,8 @@ def pointplot( conc, spc, contour = False, points = True, filetype = 'pdf',\
     filetype = filetype
     filename = filename
     spc = spc
-    
+    season = season   
+ 
     # Get AERODIAM file for PM aggregation
     adflist = conc
     if type(adflist) == str:
@@ -61,7 +62,7 @@ def pointplot( conc, spc, contour = False, points = True, filetype = 'pdf',\
         units = 'ug/m3'
     
     # Open observed dataset
-    fob = mpe.get_obs(season='JFM', avtime='a24')
+    fob = mpe.get_obs(season=season, avtime='a24')
     # Get days matching model input
     shour, nhours = mpe.get_start_date(f)
     print(shour, nhours)
@@ -193,7 +194,12 @@ def pointplot( conc, spc, contour = False, points = True, filetype = 'pdf',\
     
     print(res.cnLevelSpacingF)
     print(res.cnMaxLevelValF)
-        
+       
+    # Maximize and size fram
+    #res.gsnMaximize = True
+    #res.wkPaperHeightF = 8    
+    #res.wkPaperWidthF = 8    
+ 
     if contour:  
         # make plot
         plot = ngl.contour_map(wks,var,res)
