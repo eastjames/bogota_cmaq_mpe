@@ -69,8 +69,8 @@ def pointplot( conc, spc, season, contour = False, points = True, filetype = 'pd
     # subset observtion dataset
     ind1 = math.floor(shour/24)
     ind2 = math.floor(nhours/24)
-    obdata = fob[spc][:, ind1:ind2].squeeze()
-    obdata = obdata.mean(dim='time')
+    obdata = fob[spc].isel(time=slice(ind1,ind2)).squeeze()
+    obdata = obdata.mean(dim='time') # mean works with nans
     
     # get obs sites lats and lons
     oblat = fob['latitude'].values

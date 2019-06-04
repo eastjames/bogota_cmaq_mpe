@@ -104,6 +104,8 @@ def make_stat_plots(stats,avstats,obx,metric,var,avtime='hourly',o3mda8=None):
 
     sites = obx.SITENAMES.split(';')
     units = obx[var].units
+    if var in ('PM25', 'PM10'):
+        units = '$\mu g/m^3$'
 
     plt.style.use(['seaborn-white', 'seaborn-ticks'])
     
