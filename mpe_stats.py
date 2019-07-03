@@ -28,7 +28,7 @@ def get_obs(season=None, avtime=None):
     Add path to file
     '''
  
-    prefix = '../../../observations/ground/' # Bezier
+    prefix = '/mnt/raid2/Shared/Bogota/observations/ground/' # Bezier
 #    prefix = '/ncsu/volume1/fgarcia4/Bogota/observations/ground/' #Henry2
 #    prefix = '../obs/' # James Macbook
     if season and avtime:
@@ -180,6 +180,9 @@ def get_cmaq_gridded(cfilelist, adflist):
     # Rename TSTEP dimension
     dset = dset.rename({'TSTEP':'time'})
  
+    # Misc attributes
+    dset.attrs['SDATE'] = d.SDATE
+
     del(d)
     
     return dset
