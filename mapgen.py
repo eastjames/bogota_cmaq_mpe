@@ -19,7 +19,8 @@ def pointplot( conc, spc, season, contour = False, points = True, filetype = 'pd
           filename = 'pointplot', title=False ):
     '''
     conc: string of file path(s). cctm output file(s). Averages across all files
-          for plot.
+          for plot. Can also accept type xarray Dataset (must be created by
+          mpe.get_cmaq_gridded() )
     spc: string. species to be plotted
          TEMP2, CO, PM10, PM25, NO2, PRSFC, NOx, NO, O3, RAIN, SO2
     contour: Boolean. contour plot if True, grid if False (default is False)
@@ -38,26 +39,35 @@ def pointplot( conc, spc, season, contour = False, points = True, filetype = 'pd
     filename = filename
     spc = spc
     season = season   
+
+    bezierhome = '/mnt/raid2/Shared/Bogota/data_eval/scripts/bogota_cmaq_mpe/'
  
-    # Get AERODIAM file for PM aggregation
-    adflist = conc
-    if type(adflist) == str:
-        adflist = adflist.replace('ACONC','AERODIAM')
-    else:
-        adflist = [adflist[n].replace('ACONC','AERODIAM') for n in range(len(adflist))]
-    
     # Grid file used for lat/lon only. Date does not matter.
-    grid = '../../../data_in/mcip/v4n/d04/GRIDCRO2D_WRFd04v4n_2014-01-01'
+    #grid = '../../../data_in/mcip/v4n/d04/GRIDCRO2D_WRFd04v4n_2014-01-01'
+    grid = '/mnt/raid2/Shared/Bogota/data_in/mcip/v4n/d04/GRIDCRO2D_WRFd04v4n_2014-01-01' #bezier
+    fgrid = xr.open_dataset(grid)
     
     font = "helvetica" # {21,    "helvetica"}
     fontheight = 0.02
-    
-    # Open obs using xarray, open conc with Monet for aggregate PM spcs
-    #f = nio.open_file(conc,"r")
-    f = mpe.get_cmaq_gridded(conc, adflist)
-    fgrid = xr.open_dataset(grid)
-    print(f[spc])
-    units = f[spc].units
+
+    # open files if conc is not a Dataset already
+    print('Input file type is: %s'%type(conc))
+    if type(conc) != xr.core.dataset.Dataset:
+        # Get AERODIAM file for PM aggregation
+        adflist = conc
+        if type(adflist) == str:
+            adflist = adflist.replace('ACONC','AERODIAM')
+        else:
+            adflist = [adflist[n].replace('ACONC','AERODIAM') for n in range(len(adflist))]    
+        # Open obs using xarray, open conc with Monet for aggregate PM spcs
+        #f = nio.open_file(conc,"r")
+        f = mpe.get_cmaq_gridded(conc, adflist)
+        print(f[spc])
+
+    else:
+        f = conc
+
+    #units = f[spc].units
     if spc in ('PM25', 'PM10'):
         units = 'ug/m3'
     
@@ -178,8 +188,8 @@ def pointplot( conc, spc, season, contour = False, points = True, filetype = 'pd
         print('maxc = ')
         print(type(maxc))
     else:
-#        maxc = np.max( var )
-        maxc = 13.
+        maxc = np.max( var )
+        #maxc = 13.
     clen = np.shape(cmap)[0]
     nintvls = 15
     if clen < nintvls:
@@ -213,7 +223,7 @@ def pointplot( conc, spc, season, contour = False, points = True, filetype = 'pd
       
     
     # open shapefile
-    gisf = './gis/LocalidadesBogota.shp'
+    gisf = bezierhome+'gis/LocalidadesBogota.shp'
     shpf = nio.open_file(gisf,"r")
     gislon = np.ravel(shpf.variables['x'][:])
     gislat = np.ravel(shpf.variables['y'][:])
@@ -277,11 +287,15 @@ def pointplot( conc, spc, season, contour = False, points = True, filetype = 'pd
     ngl.draw(plot)
     
     
-    maxtxt = 'MAX: %5.1f %s' % (np.max(var), units)
+    maxtxt = 'MAX: %5.2f %s' % (np.max(var), units)
     ngl.text_ndc(wks, maxtxt, 0.28, 0.77,txres)
+    mintxt = 'MIN: %5.2f %s' % (np.min(var), units)
+    ngl.text_ndc(wks, mintxt, 0.28, 0.7,txres)
     
     ngl.frame(wks)
-    
-    ngl.end()
+
+    ngl.destroy(wks)
+
+    #ngl.end()
     
 
