@@ -154,7 +154,14 @@ def get_cmaq_gridded(cfilelist, adflist):
         PM25 = PM25.to_dataset(name='PM25')
         PM10 = PM10.to_dataset(name='PM10')
         dset = xr.merge([d[var] for var in modspcs]+[PM25, PM10])
-        
+       
+    if type(cfilelist) == str:
+        t1 = pd.to_datetime(cfilelist[-11:-3]) #YYYMMDD string from file name 
+    else:
+        t1 = pd.to_datetime(cfilelist[0][-11:-3]) #YYYMMDD string from file name
+    dates = pd.date_range(start=t1,periods=len(f.TSTEP.values),freq='H')
+    dset = dset.assign_coords(time=dates)
+ 
     #if type(cfilelist) == str:
         #t1 = pd.to_datetime(cfilelist[-11:-3]) #YYYMMDD string from file name 
     #else:
