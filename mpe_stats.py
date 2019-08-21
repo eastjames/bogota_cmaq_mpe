@@ -28,9 +28,9 @@ def get_obs(season=None, avtime=None):
     Add path to file
     '''
  
-    #prefix = '/mnt/raid2/Shared/Bogota/observations/ground/' # Bezier
+    prefix = '/mnt/raid2/Shared/Bogota/observations/ground/' # Bezier
 #    prefix = '/ncsu/volume1/fgarcia4/Bogota/observations/ground/' #Henry2
-    prefix = '../obs/' # James Macbook
+    #prefix = '../obs/' # James Macbook
     if season and avtime:
         filename = prefix+'RMCAB_2014_' + season + '-' + avtime + '.nc'
     elif not season and avtime:
@@ -112,10 +112,13 @@ def get_ad(filelist):
     
     return adx
 
-def get_cmaq_gridded(cfilelist, adflist):
+def get_cmaq_gridded(cfilelist, adflist, more_spc=[]):
     '''
     cfilelist = python list of ACONC filenames
     adflist = list of AERODIAM files
+    more_spc = list of additional species to aggregate
+               Currently limited to PM25_NH4, PM25_NO3, PM25_SO4
+               Edit pm_aggregator.py to change to add capability
     returns a gridded cmaq object with important vars aggregated
     '''
     d = xr.open_mfdataset(cfilelist, concat_dim='TSTEP')
@@ -132,14 +135,16 @@ def get_cmaq_gridded(cfilelist, adflist):
         if 'PM10' in modspcs:
             pm_10 = True
             modspcs.remove('PM10')
-    allspcs = modspcs + pmspcs
+    allspcs = modspcs + pmspcs + more_spc
     
     if 'NOx' in modspcs:
         d['NOx'] = d.NO2 + d.NO
         units = {'units':d.NO.units}
         d['NOx'].attrs.update(units) #ppmV
-    
-    if pm_25 or pm_10:
+
+    dset = xr.merge([d[var] for var in modspcs]) 
+
+    if pm_25 or pm_10 or more_spc:
         advars = ['PM25AT','PM25AC', 'PM25CO']
         flist = []
         if type(adflist) == str:
@@ -150,11 +155,25 @@ def get_cmaq_gridded(cfilelist, adflist):
         f = f.sel(LAY=0)
         fvars = [ f[v] for v in advars ]
         ad = xr.merge(fvars)
-        PM25, PM10 = pm.pm_total2(d, ad)
-        PM25 = PM25.to_dataset(name='PM25')
-        PM10 = PM10.to_dataset(name='PM10')
-        dset = xr.merge([d[var] for var in modspcs]+[PM25, PM10])
-       
+        if pm_25 or pm_10:
+            PM25, PM10 = pm.pm_total2(d, ad)
+            PM25 = PM25.to_dataset(name='PM25')
+            PM10 = PM10.to_dataset(name='PM10')
+            dset = xr.merge([dset, PM25, PM10])
+        if 'PM25_NH4' in allspcs:
+            PM25_NH4 = pm.pm25_nh4(d, ad)
+            PM25_NH4 = PM25_NH4.to_dataset(name='PM25_NH4')
+            dset = xr.merge([dset, PM25_NH4])
+        if 'PM25_NO3' in allspcs:
+            PM25_NO3 = pm.pm25_no3(d, ad)
+            PM25_NO3 = PM25_NO3.to_dataset(name='PM25_NO3')
+            dset = xr.merge([dset, PM25_NO3])
+        if 'PM25_SO4' in allspcs:
+            PM25_SO4 = pm.pm25_so4(d, ad)
+            PM25_SO4 = PM25_SO4.to_dataset(name='PM25_SO4')
+            dset = xr.merge([dset, PM25_SO4])
+    
+ 
     if type(cfilelist) == str:
         t1 = pd.to_datetime(cfilelist[-11:-3]) #YYYMMDD string from file name 
     else:
@@ -194,7 +213,7 @@ def get_cmaq_gridded(cfilelist, adflist):
     
     return dset
 
-def get_cmaq(cfilelist, adflist):
+def get_cmaq(cfilelist, adflist, more_spc=[]):
     '''
     cfilelist = python list of ACONC filenames
     adflist = list of AERODIAM files
@@ -231,13 +250,34 @@ def get_cmaq(cfilelist, adflist):
     modx = modx.transpose( 'time', 'site' )
     del(l)
     del(mod)
+    #modx = xr.merge([modx[var] for var in modspcs])
 
-    if pm_25 or pm_10:
+    if pm_25 or pm_10 or more_spc:
         adx = get_ad(adflist)
-        PM25, PM10 = pm.pm_total2(modx, adx)
-        PM25 = PM25.to_dataset(name='PM25')
-        PM10 = PM10.to_dataset(name='PM10')
-        modx = xr.merge([modx[var] for var in modspcs]+[PM25, PM10])
+        if pm_25 or pm_10:
+            PM25, PM10 = pm.pm_total2(modx, adx)
+            PM25 = PM25.to_dataset(name='PM25')
+            PM10 = PM10.to_dataset(name='PM10')
+            modx = xr.merge([modx, PM25, PM10])
+            modspcs.append('PM10')
+            modspcs.append('PM25')
+        if 'PM25_NH4' in more_spc:
+            PM25_NH4 = pm.pm25_nh4(modx, adx)
+            PM25_NH4 = PM25_NH4.to_dataset(name='PM25_NH4')
+            modx = xr.merge([modx, PM25_NH4])
+            modspcs.append('PM25_NH4')
+        if 'PM25_NO3' in more_spc:
+            PM25_NO3 = pm.pm25_no3(modx, adx)
+            PM25_NO3 = PM25_NO3.to_dataset(name='PM25_NO3')
+            modx = xr.merge([modx, PM25_NO3])
+            modspcs.append('PM25_NO3')
+        if 'PM25_SO4' in more_spc:
+            PM25_SO4 = pm.pm25_so4(modx, adx)
+            PM25_SO4 = PM25_SO4.to_dataset(name='PM25_SO4')
+            modx = xr.merge([modx, PM25_SO4])
+            modspcs.append('PM25_SO4')
+
+    modx = xr.merge([modx[var] for var in modspcs])
         
     if type(cfilelist) == str:
         t1 = pd.to_datetime(cfilelist[-11:-3]) #YYYMMDD string from file name 
@@ -529,17 +569,3 @@ def calc_MFE(mod, obs):
     '''
     return (1/obs.count()) * np.sum( np.abs(mod-obs)/((mod+obs)/2) ) * 100
 
-
-if __name__ == '__main__':
-
-    file = 'CCTM_D502a_Linux3_x86_64intel.ACONC.BOGOTA_bc2014v3_20140107.nc'
-    fc = get_cmaq(file)
-    fo = get_obs(season='JFM')
-    fm = get_met('METCRO2D_WRFd04v4n_2014-01-07')
-    obx, modx, metx = pair_data(fo, fc, fm)
-    stats = calc_stats(obx, modx)
-    plot_scatter( obx, modx )
-    plot_stats( obx, modx )
-
-    
-    

@@ -87,12 +87,9 @@ def pm_total2( modx, adx ):
 
 def pm_species( modx, adx ):
     '''
-    Unfinished
-    To return species of PM10, PM25
-    Only thing left: return specific desired species
+    returns PM25_NH4, PM25_NO3, PM25_SO4
     '''
-    #TODO: Finish when needed
-    
+
     # crustal elements
     AFEJ = modx['AFEJ']
     AALJ = modx['AALJ']
@@ -185,7 +182,18 @@ def pm_species( modx, adx ):
     SEA = modx['ASEACAT']*adx['PM25CO']
     PM25UNSP = OM+NCOM+AOTHR+CRUSTAL+SEA
 
-    return PM25_TOT, PM10
+    return PM25_NH4, PM25_NO3, PM25_SO4
 
+def pm25_nh4( modx, adx ):
+    PM25_NH4   =  modx['ANH4I']*adx['PM25AT']+modx['ANH4J']*adx['PM25AC']+modx['ANH4K']*adx['PM25CO']
+    return PM25_NH4
+
+def pm25_no3( modx, adx ):
+    PM25_NO3   =  modx['ANO3I']*adx['PM25AT']+modx['ANO3J']*adx['PM25AC']+modx['ANO3K']*adx['PM25CO']
+    return PM25_NO3
+
+def pm25_so4( modx, adx ):
+    PM25_SO4   =  modx['ASO4I']*adx['PM25AT']+modx['ASO4J']*adx['PM25AC']+modx['ASO4K']*adx['PM25CO']
+    return PM25_SO4
 
 
