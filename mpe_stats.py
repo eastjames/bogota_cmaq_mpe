@@ -293,8 +293,34 @@ def get_cmaq(cfilelist, adflist, more_spc=[]):
             modx[var] = modx[var]*1e3 #ppm to ppb
             modx[var] = modx[var].assign_attrs(units='ppb') 
     
-    del(f)
     
+    # This part to add Bogota city average dataarray
+    # to the xarray dataset object
+    prefix = '/mnt/raid2/Shared/Bogota/data_eval/scripts/bogota_cmaq_mpe/'
+    bog_array = xr.open_dataset(prefix+'bogota_area_cells.nc')
+    bog_array = bog_array.bogota_city_cell
+    bog_array.load()
+
+    f = f.sel(LAY=0)
+
+    adf = xr.open_mfdataset(adflist, concat_dim='TSTEP')
+    adf = adf.sel(LAY=0) 
+    advars = ['PM25AT','PM25AC', 'PM25CO']
+    fvars = [ adf[v] for v in advars ]
+    ad = xr.merge(fvars)
+
+    if pm_25:
+        PM25, PM10 = pm.pm_total2(f, adf)
+
+    a1 = PM25*bog_array.rename({'lat':'ROW','lon':'COL'})
+    a2 = a1.sum(dim=('ROW','COL'))
+    bog_avg = a2/bog_array.sum()
+    bog_avg = bog_avg.to_dataset(name='bog_avg_PM25')
+    bog_avg = bog_avg.rename({'TSTEP':'time'})
+
+    modx = xr.merge([modx,bog_avg])    
+
+    del(f)
     return modx
 
 
