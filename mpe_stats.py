@@ -112,15 +112,20 @@ def get_ad(filelist):
     
     return adx
 
-def get_cmaq_gridded(cfilelist, adflist, more_spc=[]):
+def get_cmaq_gridded(cfilelist, adflist, cmqversion='', more_spc=[]):
     '''
     cfilelist = python list of ACONC filenames
     adflist = list of AERODIAM files
     more_spc = list of additional species to aggregate
                Currently limited to PM25_NH4, PM25_NO3, PM25_SO4
                Edit pm_aggregator.py to change to add capability
+    cmqversion = version of CMAQ for PM25 species definition.
+                 'v502' or 'v53' only
     returns a gridded cmaq object with important vars aggregated
     '''
+    if cmqversion == '':
+        raise ValueError('Argument cmqversion not specified, must be "v502" or "v53"')
+        
     d = xr.open_mfdataset(cfilelist, concat_dim='TSTEP')
     d = d.sel(LAY=0) # get only bottom layer
 
@@ -156,7 +161,10 @@ def get_cmaq_gridded(cfilelist, adflist, more_spc=[]):
         fvars = [ f[v] for v in advars ]
         ad = xr.merge(fvars)
         if pm_25 or pm_10:
-            PM25, PM10 = pm.pm_total2(d, ad)
+            if cmqversion = 'v502':
+                PM25, PM10 = pm.pm_total2(d, ad)
+            elif cmqversion = 'v53':
+                PM25, PM10 = pm.pm_totalv53(d, ad)
             PM25 = PM25.to_dataset(name='PM25')
             PM10 = PM10.to_dataset(name='PM10')
             dset = xr.merge([dset, PM25, PM10])
@@ -213,12 +221,17 @@ def get_cmaq_gridded(cfilelist, adflist, more_spc=[]):
     
     return dset
 
-def get_cmaq(cfilelist, adflist, more_spc=[]):
+def get_cmaq(cfilelist, adflist, cmqversion = '', more_spc=[]):
     '''
     cfilelist = python list of ACONC filenames
     adflist = list of AERODIAM files
+    cmqversion = version of CMAQ for PM25 species definition.
+                 'v502' or 'v53' only
     returns a monet cmaq object with important vars aggregated
     '''
+    if cmqversion == '':
+        raise ValueError('Argument cmqversion not specified, must be "v502" or "v53"')
+
     f = xr.open_mfdataset(cfilelist, concat_dim='TSTEP')
 
     mod = []
@@ -255,7 +268,10 @@ def get_cmaq(cfilelist, adflist, more_spc=[]):
     if pm_25 or pm_10 or more_spc:
         adx = get_ad(adflist)
         if pm_25 or pm_10:
-            PM25, PM10 = pm.pm_total2(modx, adx)
+            if cmqversion = 'v502':
+                PM25, PM10 = pm.pm_total2(modx, adx)
+            elif cmqversion = 'v53':
+                PM25, PM10 = pm.pm_totalv53(modx, adx)
             PM25 = PM25.to_dataset(name='PM25')
             PM10 = PM10.to_dataset(name='PM10')
             modx = xr.merge([modx, PM25, PM10])
@@ -276,6 +292,16 @@ def get_cmaq(cfilelist, adflist, more_spc=[]):
             PM25_SO4 = PM25_SO4.to_dataset(name='PM25_SO4')
             modx = xr.merge([modx, PM25_SO4])
             modspcs.append('PM25_SO4')
+        if 'ANAI' in more_spc:
+            ANAI = pm.pm25_anai(modx,adx)
+            ANAI = ANAI.to_dataset(name='ANAI')
+            modx = xr.merge([modx, ANAI])
+            modspcs.append('ANAI')
+        if 'AOTHRI' in more_spc:
+            AOTHRI = pm.pm25_aothri(modx,adx)
+            AOTHRI = AOTHRI.to_dataset(name='AOTHRI')
+            modx = xr.merge([modx, AOTHRI])
+            modspcs.append('AOTHRI')
 
     modx = xr.merge([modx[var] for var in modspcs])
         
@@ -310,7 +336,10 @@ def get_cmaq(cfilelist, adflist, more_spc=[]):
     ad = xr.merge(fvars)
 
     if pm_25:
-        PM25, PM10 = pm.pm_total2(f, adf)
+        if cmqversion = 'v502':
+            PM25, PM10 = pm.pm_total2(f, adf)
+        elif cmqversion = 'v53':
+            PM25, PM10 = pm.pm_totalv53(f, adf)
 
     a1 = PM25*bog_array.rename({'lat':'ROW','lon':'COL'})
     a2 = a1.sum(dim=('ROW','COL'))
