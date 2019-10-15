@@ -112,7 +112,7 @@ def get_ad(filelist):
     
     return adx
 
-def get_cmaq_gridded(cfilelist, adflist, cmqversion='', more_spc=[]):
+def get_cmaq_gridded(cfilelist, adflist, cmqversion='v502', more_spc=[]):
     '''
     cfilelist = python list of ACONC filenames
     adflist = list of AERODIAM files
@@ -125,7 +125,8 @@ def get_cmaq_gridded(cfilelist, adflist, cmqversion='', more_spc=[]):
     '''
     if cmqversion == '':
         raise ValueError('Argument cmqversion not specified, must be "v502" or "v53"')
-        
+    print('\n \n \nWARNING: CMAQ data is being processed as CMAQ%s'%cmqversion)
+    print('If using different version, CHANGE NOW!\n \n \n') 
     d = xr.open_mfdataset(cfilelist, concat_dim='TSTEP')
     d = d.sel(LAY=0) # get only bottom layer
 
@@ -221,7 +222,7 @@ def get_cmaq_gridded(cfilelist, adflist, cmqversion='', more_spc=[]):
     
     return dset
 
-def get_cmaq(cfilelist, adflist, cmqversion = '', more_spc=[]):
+def get_cmaq(cfilelist, adflist, cmqversion = 'v502', more_spc=[]):
     '''
     cfilelist = python list of ACONC filenames
     adflist = list of AERODIAM files
@@ -231,6 +232,8 @@ def get_cmaq(cfilelist, adflist, cmqversion = '', more_spc=[]):
     '''
     if cmqversion == '':
         raise ValueError('Argument cmqversion not specified, must be "v502" or "v53"')
+    print('\n \n \nWARNING: CMAQ data is being processed as CMAQ%s'%cmqversion)
+    print('If using different version, CHANGE NOW!\n \n \n') 
 
     f = xr.open_mfdataset(cfilelist, concat_dim='TSTEP')
 
