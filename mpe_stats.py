@@ -4,6 +4,7 @@ import xarray as xr
 import make_plots as mp
 import pm_aggregator as pm
 import pandas as pd
+import os
 
 def ob_row_col():
     # obcol and obrow are 14 observation site locations
@@ -28,8 +29,8 @@ def get_obs(season=None, avtime=None):
     Add path to file
     '''
  
-    prefix = '/mnt/raid2/Shared/Bogota/observations/ground/' # Bezier
-#    prefix = '/ncsu/volume1/fgarcia4/Bogota/observations/ground/' #Henry2
+    #prefix = '/mnt/raid2/Shared/Bogota/observations/ground/' # Bezier
+    prefix = '/ncsu/volume1/fgarcia4/Bogota/observations/ground/' #Henry2
     #prefix = '../obs/' # James Macbook
     if season and avtime:
         filename = prefix+'RMCAB_2014_' + season + '-' + avtime + '.nc'
@@ -88,12 +89,14 @@ def get_met(filelist):
     # need to set time coords
 
 
-def get_ad(filelist):
+def get_ad(filelist,cmqversion):
     '''
     filelist = python list of filenames or string of 1 file
     returns a xarray dataset of desired ad vars
     '''
-    advars = ['PM25AT','PM25AC', 'PM25CO']    
+    advars = ['PM25AT','PM25AC','PM25CO']    
+    if cmqversion == 'v53':
+        advars = advars + ['PM10AT','PM10AC','PM10CO']
     flist = []
     if type(filelist) == str:
         flist.append(filelist)
@@ -134,7 +137,10 @@ def get_cmaq_gridded(cfilelist, adflist, cmqversion='v502', more_spc=[]):
     obspcs, modspcs = get_spcs()
     pmspcs = []
     if ('PM10' in modspcs) or ('PM25' in modspcs):
-        pmspcs = pm.get_spcs()
+        if cmqversion == 'v502':
+            pmspcs = pm.get_spcs()
+        elif cmqversion == 'v53':
+            pmspcs = pm.get_spcsv53()
         if 'PM25' in modspcs:
             pm_25 = True
             modspcs.remove('PM25')
@@ -152,6 +158,8 @@ def get_cmaq_gridded(cfilelist, adflist, cmqversion='v502', more_spc=[]):
 
     if pm_25 or pm_10 or more_spc:
         advars = ['PM25AT','PM25AC', 'PM25CO']
+        if cmqversion == 'v53':
+            advars = advars + ['PM10AT','PM10AC','PM10CO']
         flist = []
         if type(adflist) == str:
             flist.append(adflist)
@@ -162,9 +170,9 @@ def get_cmaq_gridded(cfilelist, adflist, cmqversion='v502', more_spc=[]):
         fvars = [ f[v] for v in advars ]
         ad = xr.merge(fvars)
         if pm_25 or pm_10:
-            if cmqversion = 'v502':
+            if cmqversion == 'v502':
                 PM25, PM10 = pm.pm_total2(d, ad)
-            elif cmqversion = 'v53':
+            elif cmqversion == 'v53':
                 PM25, PM10 = pm.pm_totalv53(d, ad)
             PM25 = PM25.to_dataset(name='PM25')
             PM10 = PM10.to_dataset(name='PM10')
@@ -242,7 +250,10 @@ def get_cmaq(cfilelist, adflist, cmqversion = 'v502', more_spc=[]):
     obspcs, modspcs = get_spcs()
     pmspcs = []
     if ('PM10' in modspcs) or ('PM25' in modspcs):
-        pmspcs = pm.get_spcs()
+        if cmqversion == 'v502':
+            pmspcs = pm.get_spcs()
+        elif cmqversion == 'v53':
+            pmspcs = pm.get_spcsv53()
         if 'PM25' in modspcs:
             pm_25 = True
             modspcs.remove('PM25')
@@ -269,11 +280,11 @@ def get_cmaq(cfilelist, adflist, cmqversion = 'v502', more_spc=[]):
     #modx = xr.merge([modx[var] for var in modspcs])
 
     if pm_25 or pm_10 or more_spc:
-        adx = get_ad(adflist)
+        adx = get_ad(adflist,cmqversion)
         if pm_25 or pm_10:
-            if cmqversion = 'v502':
+            if cmqversion == 'v502':
                 PM25, PM10 = pm.pm_total2(modx, adx)
-            elif cmqversion = 'v53':
+            elif cmqversion == 'v53':
                 PM25, PM10 = pm.pm_totalv53(modx, adx)
             PM25 = PM25.to_dataset(name='PM25')
             PM10 = PM10.to_dataset(name='PM10')
@@ -295,16 +306,16 @@ def get_cmaq(cfilelist, adflist, cmqversion = 'v502', more_spc=[]):
             PM25_SO4 = PM25_SO4.to_dataset(name='PM25_SO4')
             modx = xr.merge([modx, PM25_SO4])
             modspcs.append('PM25_SO4')
-        if 'ANAI' in more_spc:
-            ANAI = pm.pm25_anai(modx,adx)
-            ANAI = ANAI.to_dataset(name='ANAI')
-            modx = xr.merge([modx, ANAI])
-            modspcs.append('ANAI')
-        if 'AOTHRI' in more_spc:
-            AOTHRI = pm.pm25_aothri(modx,adx)
-            AOTHRI = AOTHRI.to_dataset(name='AOTHRI')
-            modx = xr.merge([modx, AOTHRI])
-            modspcs.append('AOTHRI')
+        if 'PM_ANAI' in more_spc:
+            PM_ANAI = pm.pm25_anai(modx,adx)
+            PM_ANAI = PM_ANAI.to_dataset(name='PM_ANAI')
+            modx = xr.merge([modx, PM_ANAI])
+            modspcs.append('PM_ANAI')
+        if 'PM_AOTHRI' in more_spc:
+            PM_AOTHRI = pm.pm25_aothri(modx,adx)
+            PM_AOTHRI = PM_AOTHRI.to_dataset(name='PM_AOTHRI')
+            modx = xr.merge([modx, PM_AOTHRI])
+            modspcs.append('PM_AOTHRI')
 
     modx = xr.merge([modx[var] for var in modspcs])
         
@@ -325,8 +336,9 @@ def get_cmaq(cfilelist, adflist, cmqversion = 'v502', more_spc=[]):
     
     # This part to add Bogota city average dataarray
     # to the xarray dataset object
-    prefix = '/mnt/raid2/Shared/Bogota/data_eval/scripts/bogota_cmaq_mpe/'
-    bog_array = xr.open_dataset(prefix+'bogota_area_cells.nc')
+    #prefix = '/mnt/raid2/Shared/Bogota/data_eval/scripts/bogota_cmaq_mpe/'
+    prefix = os.path.dirname(os.path.realpath(__file__)) # cwd for this script
+    bog_array = xr.open_dataset(prefix+'/bogota_area_cells.nc')
     bog_array = bog_array.bogota_city_cell
     bog_array.load()
 
@@ -339,9 +351,9 @@ def get_cmaq(cfilelist, adflist, cmqversion = 'v502', more_spc=[]):
     ad = xr.merge(fvars)
 
     if pm_25:
-        if cmqversion = 'v502':
+        if cmqversion == 'v502':
             PM25, PM10 = pm.pm_total2(f, adf)
-        elif cmqversion = 'v53':
+        elif cmqversion == 'v53':
             PM25, PM10 = pm.pm_totalv53(f, adf)
 
     a1 = PM25*bog_array.rename({'lat':'ROW','lon':'COL'})

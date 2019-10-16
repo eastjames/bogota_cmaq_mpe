@@ -32,6 +32,41 @@ def get_spcs():
     modspcs = PMI_TOT + PMJ_TOT + PMK_TOT + PM
     return modspcs
 
+def get_spcsv53():
+    '''
+    Returns list of species used to aggregate PM25
+    Based on CMAQv5.3 chemical mechanism cbr3_ae7_aq
+    from the ACONC file and AERODIAM file
+    '''
+    APOMI     =  'ALVPO1I + ASVPO1I + ASVPO2I + APOCI + APNCOMI'
+    APOMJ     =  'ALVPO1J + ASVPO1J + ASVPO2J + APOCJ + \
+                  ASVPO3J + AIVPO1J + APNCOMJ'
+    ASOMI     =  'ALVOO1I + ALVOO2I + ASVOO1I + ASVOO2I'
+    ASOMJ     =  'AISO1J + AISO2J + AISO3J + \
+                  AMT1J + AMT2J + AMT3J + AMT4J + \
+                  AMT5J + AMT6J + AMTNO3J + \
+                  AMTHYDJ + AGLYJ + ASQTJ + \
+                  AORGCJ + AOLGBJ + AOLGAJ + \
+                  ALVOO1J + ALVOO2J + ASVOO1J + ASVOO2J + \
+                  ASVOO3J + APCSOJ + AAVB1J + AAVB2J + \
+                  AAVB3J + AAVB4J'
+    AOMI      =  APOMI +' + '+ ASOMI
+    AOMJ      =  APOMJ +' + '+ ASOMJ
+    ATOTI     =  'ASO4I + ANO3I + ANH4I + ANAI + ACLI + \
+                  AECI' +' + '+ AOMI +' + '+ 'AOTHRI + AH2OI'
+    ATOTJ     =  'ASO4J + ANO3J + ANH4J + ANAJ + ACLJ + \
+                  AECJ' +' + '+ AOMJ +' + '+ 'AOTHRJ + AFEJ + ASIJ + \
+                  ATIJ + ACAJ + AMGJ + AMNJ + AALJ + \
+                  AKJ + AH2OJ'
+    ATOTK     =  'ASOIL + ACORS + ASEACAT + ACLK + ASO4K + \
+                  ANO3K + ANH4K + AH2OK'
+    ATOTI = [pmi.strip() for pmi in ATOTI.split(' + ')] 
+    ATOTJ = [pmj.strip() for pmj in ATOTJ.split(' + ')] 
+    ATOTK = [pmk.strip() for pmk in ATOTK.split(' + ')] 
+    modspcs = ATOTI + ATOTJ + ATOTK
+
+    return modspcs
+
 def pm_total( modx, adx ):
     '''
     Returns total PM2.5 and PM10 based on CMAQ output
