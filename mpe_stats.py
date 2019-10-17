@@ -59,7 +59,7 @@ def get_obs(season=None, avtime=None):
 	
 def get_met(filelist):
     '''
-    filelist = python list of filenames or string of 1 file
+    filelist = python list of METCRO2D filenames or string of 1 file
     returns a xarray dataset of desired met vars
     '''
     flist = []
@@ -399,6 +399,7 @@ def pair_data(obs, modx, metx):
     modx.load()
     obx.load()
     obx.attrs = obs.attrs
+    metx = metx.sel(time=slice(shour,shour+nhours))
     metx = metx.assign_coords(time=modx.time)
     # Set PM10 and PM25 to std
     std = ['PM10','PM25']
