@@ -30,7 +30,8 @@ def get_obs(season=None, avtime=None):
     '''
  
     #prefix = '/mnt/raid2/Shared/Bogota/observations/ground/' # Bezier
-    prefix = '/ncsu/volume1/fgarcia4/Bogota/observations/ground/' #Henry2
+    #prefix = '/ncsu/volume1/fgarcia4/Bogota/observations/ground/' #Henry2
+    prefix = '/rsstu/users/f/fgarcia4/garcia_grp/Bogota/data_eval/observations/ground/' #Henry2
     #prefix = '../obs/' # James Macbook
     if season and avtime:
         filename = prefix+'RMCAB_2014_' + season + '-' + avtime + '.nc'
@@ -43,6 +44,10 @@ def get_obs(season=None, avtime=None):
     print(filename)
     f = xr.open_mfdataset(filename)
     f = f.rename({'PM10STD':'PM10', 'PM25STD':'PM25'})
+    try:
+        f = f.rename({'TSTEP':'time'})
+    except ValueError:
+        pass
     f.load()
 
     # Remove Suba
@@ -56,11 +61,11 @@ def get_obs(season=None, avtime=None):
     f.attrs.update({'SITENAMES':sites})
 
     return f
-	
+
 def get_met(filelist):
     '''
     filelist = python list of METCRO2D filenames or string of 1 file
-    returns a xarray dataset of desired met vars
+    returns xarray dataset of desired met vars
     '''
     flist = []
     if type(filelist) == str:
@@ -225,6 +230,7 @@ def get_cmaq_gridded(cfilelist, adflist, cmqversion='v502', more_spc=[]):
  
     # Misc attributes
     dset.attrs['SDATE'] = d.SDATE
+    dset.attrs['cmqversion']=cmqversion
 
     del(d)
     
@@ -325,7 +331,6 @@ def get_cmaq(cfilelist, adflist, cmqversion = 'v502', more_spc=[]):
         t1 = pd.to_datetime(cfilelist[0][-11:-3]) #YYYMMDD string from file name
     dates = pd.date_range(start=t1,periods=len(f.TSTEP.values),freq='H')
     modx = modx.assign_coords(time=dates)
-    modx = modx.assign_attrs({'SDATE':f.SDATE})
     
     #fix units
     for var in ['SO2','O3','NOx']:
@@ -363,13 +368,14 @@ def get_cmaq(cfilelist, adflist, cmqversion = 'v502', more_spc=[]):
     bog_avg = bog_avg.rename({'TSTEP':'time'})
 
     modx = xr.merge([modx,bog_avg])    
-
+    modx.attrs['cmqversion']=cmqversion
+    modx.attrs['SDATE']=f.SDATE
     del(f)
     return modx
 
 
 
-def pair_data(obs, modx, metx):
+def pair_data(obs, modx, metx, metfullszn=True):
     '''
     statistic = NME, NMB, r2
     dates optional if not entire dataset
@@ -389,17 +395,19 @@ def pair_data(obs, modx, metx):
     print('start = %d, number of hours = %d' % (shour, nhours))
 
     # get all obs vals and create xarray dataset for them
-    obx = xr.merge([obs[spc].sel(TSTEP=slice(shour,shour+nhours)) for spc in obspcs])
+    obx = xr.merge([obs[spc].isel(time=slice(shour,shour+nhours)) for spc in obspcs])
     print(obx)
     obx = obx.assign_coords(time=modx.time)
-    obx = obx.rename({'TSTEP':'time', 'points':'site'})
+    obx = obx.rename({'points':'site'})
     obx = obx.transpose( 'time', 'site' )
  
     metx.load()
     modx.load()
     obx.load()
     obx.attrs = obs.attrs
-    metx = metx.sel(time=slice(shour,shour+nhours))
+    if metfullszn == True:
+        if modx.cmqversion == 'v53': # Do this for v53 when METCRO2D file has entire season
+            metx = metx.sel(time=slice(shour,shour+nhours))
     metx = metx.assign_coords(time=modx.time)
     # Set PM10 and PM25 to std
     std = ['PM10','PM25']
@@ -587,7 +595,8 @@ def make_24h_avg(obx, modx):
     obx24 = obx.resample(time='D', keep_attrs=True).mean()
     obx24.attrs = obx.attrs
     for var in list(obx.keys()):
-        obx24[var].attrs = obx[var].attrs
+        if not var == 'time_bounds':
+            obx24[var].attrs = obx[var].attrs
     modx24 = modx.resample(time='D', keep_attrs=True).mean()
     return obx24, modx24
 
