@@ -29,9 +29,9 @@ def get_obs(season=None, avtime=None):
     Add path to file
     '''
  
-    #prefix = '/mnt/raid2/Shared/Bogota/observations/ground/' # Bezier
+    prefix = '/mnt/raid2/Shared/Bogota/observations/ground/' # Bezier
     #prefix = '/ncsu/volume1/fgarcia4/Bogota/observations/ground/' #Henry2
-    prefix = '/rsstu/users/f/fgarcia4/garcia_grp/Bogota/data_eval/observations/ground/' #Henry2
+    #prefix = '/rsstu/users/f/fgarcia4/garcia_grp/Bogota/data_eval/observations/ground/' #Henry2
     #prefix = '../obs/' # James Macbook
     if season and avtime:
         filename = prefix+'RMCAB_2014_' + season + '-' + avtime + '.nc'
@@ -295,8 +295,8 @@ def get_cmaq(cfilelist, adflist, cmqversion = 'v502', more_spc=[]):
             PM25 = PM25.to_dataset(name='PM25')
             PM10 = PM10.to_dataset(name='PM10')
             modx = xr.merge([modx, PM25, PM10])
-            modspcs.append('PM10')
             modspcs.append('PM25')
+            modspcs.append('PM10')
         if 'PM25_NH4' in more_spc:
             PM25_NH4 = pm.pm25_nh4(modx, adx)
             PM25_NH4 = PM25_NH4.to_dataset(name='PM25_NH4')
@@ -324,7 +324,7 @@ def get_cmaq(cfilelist, adflist, cmqversion = 'v502', more_spc=[]):
             modspcs.append('PM_AOTHRI')
 
     modx = xr.merge([modx[var] for var in modspcs])
-        
+
     if type(cfilelist) == str:
         t1 = pd.to_datetime(cfilelist[-11:-3]) #YYYMMDD string from file name 
     else:
@@ -547,7 +547,7 @@ def stats_all_sites( obx, modx ):
 
 def plot_scatter( obx, modx ):
     if not list(obx.keys()) == list(modx.keys()):
-        raise SystemExit('Modeled and observed dataset variables do not match')
+        raise ValueError('Modeled and observed dataset variables do not match')
     obx24, modx24 = make_24h_avg(obx,modx)
     for var in list(obx.keys()):
         # hourly
@@ -566,9 +566,9 @@ def plot_scatter( obx, modx ):
 #                print(modx24)
             mp.make_scatter(obx24, modx24, var, fname24)
 
-def plot_stats( obx, modx ):
+def plot_stats( obx, modx, season):
     if not list(obx.keys()) == list(modx.keys()):
-        raise SystemExit('Modeled and observed dataset variables do not match')
+        raise ValueError('Modeled and observed dataset variables do not match')
     stats = calc_stats( obx, modx )
     obx24, modx24 = make_24h_avg(obx, modx)
     avstats = stats_all_sites( obx, modx )
@@ -580,16 +580,16 @@ def plot_stats( obx, modx ):
             # hourly
             avtime = 'hourly'
             if not np.isnan( stats[metric].loc[:,var,avtime] ).all():
-                mp.make_stat_plots(stats, avstats, obx, metric, var, avtime)
+                mp.make_stat_plots(stats, avstats, obx, metric, var,season, avtime)
             # 24 hour avg
             avtime = '24h/mda8'
             if var=='O3':
                 #stuff
                 if not np.isnan( stats[metric].loc[:,var,avtime] ).all():
-                    mp.make_stat_plots(stats, avstats24, obx, metric, var, 'mda8', o3mda8)               
+                    mp.make_stat_plots(stats, avstats24, obx, metric, var,season, 'mda8', o3mda8)               
             else:
                 if not np.isnan( stats[metric].loc[:,var,avtime] ).all():
-                    mp.make_stat_plots(stats, avstats24, obx24, metric, var, '24h')
+                    mp.make_stat_plots(stats, avstats24, obx24, metric, var,season, '24h')
             
 def make_24h_avg(obx, modx):
     obx24 = obx.resample(time='D', keep_attrs=True).mean()

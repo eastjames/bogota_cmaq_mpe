@@ -87,7 +87,7 @@ def make_scatter( obx, modx, var, fname):
     fig.savefig('../figs/%s.%s' % (fname,frmt), format=frmt, bbox_inches='tight')
     plt.close()
 
-def make_stat_plots(stats,avstats,obx,metric,var,avtime='hourly',o3mda8=None):
+def make_stat_plots(stats,avstats,obx,metric,var,season,avtime='hourly',o3mda8=None):
     '''
     stats = stats xarray
     avstats: Must be for proper averaging time!
@@ -226,7 +226,7 @@ def make_stat_plots(stats,avstats,obx,metric,var,avtime='hourly',o3mda8=None):
     ax.xaxis.label.set_fontsize(fs)
     ax.yaxis.label.set_fontsize(fs)
     ax.tick_params(labelsize=fs)
-    fig.savefig('../figs/%s.%s' % (fname,frmt), format=frmt, bbox_inches='tight')
+    fig.savefig('../figs/%s_%s.%s' % (fname,season,frmt), format=frmt, bbox_inches='tight')
     plt.close()
     del(goal)
     del(criteria)
