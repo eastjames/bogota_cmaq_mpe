@@ -87,14 +87,18 @@ def make_scatter( obx, modx, var, fname):
     fig.savefig('../figs/%s.%s' % (fname,frmt), format=frmt, bbox_inches='tight')
     plt.close()
 
-def make_stat_plots(stats,avstats,obx,metric,var,season,avtime='hourly',o3mda8=None):
+def make_stat_plots(stats,avstats,obx,metric,var,season,save=True,avtime='hourly',o3mda8=None, fpath=None):
     '''
     stats = stats xarray
     avstats: Must be for proper averaging time!
     obx: Must be for proper averaging time!
-    modx
+    metric
     var
+    season
+    save = True or False, returns plot obj if false
     avtime = 'hourly' or '24h' or 'mda8'
+    o3mda8 
+    fpath= optional filepath and name, defaults to '../figs/fname_season.fmt'
     '''
     avtime = avtime.lower()
     metric = metric.upper()
@@ -226,9 +230,15 @@ def make_stat_plots(stats,avstats,obx,metric,var,season,avtime='hourly',o3mda8=N
     ax.xaxis.label.set_fontsize(fs)
     ax.yaxis.label.set_fontsize(fs)
     ax.tick_params(labelsize=fs)
-    fig.savefig('../figs/%s_%s.%s' % (fname,season,frmt), format=frmt, bbox_inches='tight')
-    plt.close()
-    del(goal)
-    del(criteria)
+    
+    if save:
+        if fpath == None: 
+            fpath = '../figs/%s_%s.%s' % (fname,season,frmt)
+        fig.savefig(fpath, format=frmt, bbox_inches='tight')
+        plt.close()
+        del(goal)
+        del(criteria)
+    else:
+        return fig, ax
 
 
