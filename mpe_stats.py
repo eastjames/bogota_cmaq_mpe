@@ -33,6 +33,8 @@ def get_obs(season=None, avtime=None):
     #prefix = '/ncsu/volume1/fgarcia4/Bogota/observations/ground/' #Henry2
     #prefix = '/rsstu/users/f/fgarcia4/garcia_grp/Bogota/data_eval/observations/ground/' #Henry2
     #prefix = '../obs/' # James Macbook
+    prefix = os.path.dirname(os.path.realpath(__file__)) #mac
+    prefix = prefix+'/../obs/'#mac
     if season and avtime:
         filename = prefix+'RMCAB_2014_' + season + '-' + avtime + '.nc'
     elif not season and avtime:
