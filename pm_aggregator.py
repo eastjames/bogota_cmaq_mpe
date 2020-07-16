@@ -32,6 +32,41 @@ def get_spcs():
     modspcs = PMI_TOT + PMJ_TOT + PMK_TOT + PM
     return modspcs
 
+def get_spcsv53():
+    '''
+    Returns list of species used to aggregate PM25
+    Based on CMAQv5.3 chemical mechanism cbr3_ae7_aq
+    from the ACONC file and AERODIAM file
+    '''
+    APOMI     =  'ALVPO1I + ASVPO1I + ASVPO2I + APOCI + APNCOMI'
+    APOMJ     =  'ALVPO1J + ASVPO1J + ASVPO2J + APOCJ + \
+                  ASVPO3J + AIVPO1J + APNCOMJ'
+    ASOMI     =  'ALVOO1I + ALVOO2I + ASVOO1I + ASVOO2I'
+    ASOMJ     =  'AISO1J + AISO2J + AISO3J + \
+                  AMT1J + AMT2J + AMT3J + AMT4J + \
+                  AMT5J + AMT6J + AMTNO3J + \
+                  AMTHYDJ + AGLYJ + ASQTJ + \
+                  AORGCJ + AOLGBJ + AOLGAJ + \
+                  ALVOO1J + ALVOO2J + ASVOO1J + ASVOO2J + \
+                  ASVOO3J + APCSOJ + AAVB1J + AAVB2J + \
+                  AAVB3J + AAVB4J'
+    AOMI      =  APOMI +' + '+ ASOMI
+    AOMJ      =  APOMJ +' + '+ ASOMJ
+    ATOTI     =  'ASO4I + ANO3I + ANH4I + ANAI + ACLI + \
+                  AECI' +' + '+ AOMI +' + '+ 'AOTHRI + AH2OI'
+    ATOTJ     =  'ASO4J + ANO3J + ANH4J + ANAJ + ACLJ + \
+                  AECJ' +' + '+ AOMJ +' + '+ 'AOTHRJ + AFEJ + ASIJ + \
+                  ATIJ + ACAJ + AMGJ + AMNJ + AALJ + \
+                  AKJ + AH2OJ'
+    ATOTK     =  'ASOIL + ACORS + ASEACAT + ACLK + ASO4K + \
+                  ANO3K + ANH4K + AH2OK'
+    ATOTI = [pmi.strip() for pmi in ATOTI.split(' + ')] 
+    ATOTJ = [pmj.strip() for pmj in ATOTJ.split(' + ')] 
+    ATOTK = [pmk.strip() for pmk in ATOTK.split(' + ')] 
+    modspcs = ATOTI + ATOTJ + ATOTK
+
+    return modspcs
+
 def pm_total( modx, adx ):
     '''
     Returns total PM2.5 and PM10 based on CMAQ output
@@ -66,7 +101,7 @@ def pm_total2( modx, adx ):
     Requires ACONC file and AERODIAM file
     '''
     PMI_TOT = modx['ASO4I'] + modx['ANH4I'] + modx['ANO3I'] + modx['APOCI'] +\
-              modx['APNCOMI'] + modx['AECI'] + modx['AH2OI'] +  modx['ACLI']
+              modx['APNCOMI'] + modx['AECI'] + modx['AH2OI'] +  modx['ACLI'] + modx['ANAI'] + modx['AOTHRI']
     PMJ_TOT = modx['ASO4J'] + modx['ANH4J'] + modx['ANO3J'] + modx['AALKJ'] +\
               modx['AXYL1J'] + modx['AXYL2J'] +modx['AXYL3J'] + modx['ATOL1J'] +\
               modx['ATOL2J'] + modx['ATOL3J'] + modx['ABNZ1J'] + modx['ABNZ2J'] +\
@@ -85,14 +120,52 @@ def pm_total2( modx, adx ):
     return PM25_TOT, PM10
 
 
+def pm_totalv53( modx, adx ):
+    '''
+    For CMAQv5.3, cb6r3_ae7_aq mechanism
+    H2O species added to match UFL definition
+    Returns total PM2.5 and PM10 based on CMAQ output
+    Return is xarray data array
+    Requires ACONC file (modx) and APMDIAG file (adx)
+    '''
+    APOMI     =  modx['ALVPO1I'] + modx['ASVPO1I'] + modx['ASVPO2I'] + modx['APOCI'] + modx['APNCOMI']
+    APOMJ     =  modx['ALVPO1J'] + modx['ASVPO1J'] + modx['ASVPO2J'] + modx['APOCJ']     \
+                +modx['ASVPO3J'] + modx['AIVPO1J'] + modx['APNCOMJ']
+    ASOMI     =  modx['ALVOO1I'] + modx['ALVOO2I'] + modx['ASVOO1I'] + modx['ASVOO2I']
+    ASOMJ     =  modx['AISO1J']  + modx['AISO2J']  + modx['AISO3J']              \
+                +modx['AMT1J']   + modx['AMT2J']   + modx['AMT3J']   + modx['AMT4J']  \
+                +modx['AMT5J']   + modx['AMT6J']   + modx['AMTNO3J']\
+                +modx['AMTHYDJ'] + modx['AGLYJ']   + modx['ASQTJ']               \
+                +modx['AORGCJ']  + modx['AOLGBJ']  + modx['AOLGAJ']              \
+                +modx['ALVOO1J'] + modx['ALVOO2J'] + modx['ASVOO1J'] + modx['ASVOO2J']\
+                +modx['ASVOO3J'] + modx['APCSOJ']  + modx['AAVB1J']  + modx['AAVB2J']\
+                +modx['AAVB3J']  + modx['AAVB4J']
+    AOMI      =  APOMI + ASOMI
+    AOMJ      =  APOMJ + ASOMJ
+    ATOTI     =  modx['ASO4I']   + modx['ANO3I']   + modx['ANH4I']   + modx['ANAI']   + modx['ACLI'] \
+                +modx['AECI']    +       AOMI      + modx['AOTHRI']  + modx['AH2OI']
+    ATOTJ     =  modx['ASO4J']   + modx['ANO3J']   + modx['ANH4J']   + modx['ANAJ']   + modx['ACLJ'] \
+                +modx['AECJ']    +       AOMJ      + modx['AOTHRJ']  + modx['AFEJ']   + modx['ASIJ'] \
+                +modx['ATIJ']    + modx['ACAJ']    + modx['AMGJ']    + modx['AMNJ']   + modx['AALJ'] \
+                +modx['AKJ']     + modx['AH2OJ']
+    ATOTK     =  modx['ASOIL']   + modx['ACORS']   + modx['ASEACAT'] + modx['ACLK']   + modx['ASO4K'] \
+                +modx['ANO3K']   + modx['ANH4K']   + modx['AH2OK']
+    ATOTIJ    =  ATOTI + ATOTJ
+    ATOTIJK   =  ATOTIJ+ ATOTK    
+
+    PM25_TOT  =  ATOTI*adx['PM25AT'] + ATOTJ*adx['PM25AC'] + ATOTK*adx['PM25CO']
+
+    PM10      =  ATOTI*adx['PM10AT'] + ATOTJ*adx['PM10AC'] + ATOTK*adx['PM10CO']
+
+    return PM25_TOT, PM10
+
+
+
 def pm_species( modx, adx ):
     '''
-    Unfinished
-    To return species of PM10, PM25
-    Only thing left: return specific desired species
+    returns PM25_NH4, PM25_NO3, PM25_SO4
     '''
-    #TODO: Finish when needed
-    
+
     # crustal elements
     AFEJ = modx['AFEJ']
     AALJ = modx['AALJ']
@@ -185,7 +258,25 @@ def pm_species( modx, adx ):
     SEA = modx['ASEACAT']*adx['PM25CO']
     PM25UNSP = OM+NCOM+AOTHR+CRUSTAL+SEA
 
-    return PM25_TOT, PM10
+    return PM25_NH4, PM25_NO3, PM25_SO4
 
+def pm25_nh4( modx, adx ):
+    PM25_NH4   =  modx['ANH4I']*adx['PM25AT']+modx['ANH4J']*adx['PM25AC']+modx['ANH4K']*adx['PM25CO']
+    return PM25_NH4
 
+def pm25_no3( modx, adx ):
+    PM25_NO3   =  modx['ANO3I']*adx['PM25AT']+modx['ANO3J']*adx['PM25AC']+modx['ANO3K']*adx['PM25CO']
+    return PM25_NO3
+
+def pm25_so4( modx, adx ):
+    PM25_SO4   =  modx['ASO4I']*adx['PM25AT']+modx['ASO4J']*adx['PM25AC']+modx['ASO4K']*adx['PM25CO']
+    return PM25_SO4
+
+def pm25_anai( modx, adx ):
+    ANAI = modx['ANAI']*adx['PM25AT']
+    return ANAI
+
+def pm25_aothri( modx, adx ):
+    AOTHRI = modx['AOTHRI']*adx['PM25AT']
+    return AOTHRI
 

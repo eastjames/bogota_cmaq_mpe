@@ -87,7 +87,7 @@ def make_scatter( obx, modx, var, fname):
     fig.savefig('../figs/%s.%s' % (fname,frmt), format=frmt, bbox_inches='tight')
     plt.close()
 
-def make_stat_plots(stats,avstats,obx,metric,var,avtime='hourly',o3mda8=None):
+def make_stat_plots(stats,avstats,obx,metric,var,season,avtime='hourly',o3mda8=None):
     '''
     stats = stats xarray
     avstats: Must be for proper averaging time!
@@ -115,7 +115,7 @@ def make_stat_plots(stats,avstats,obx,metric,var,avtime='hourly',o3mda8=None):
     fig, ax = plt.subplots(1)
     
     colors = colorlist()
-    fs=10 #fontsize
+    fs=24 #fontsize
 
     for i, site in enumerate(stats.site):
         # get mean obs if it's not empty
@@ -201,7 +201,7 @@ def make_stat_plots(stats,avstats,obx,metric,var,avtime='hourly',o3mda8=None):
     print('Max x is: ')
     print(x)
     print('ALL MARKER = %f, %f' % (x,y))
-    ax.scatter( x, y, marker='D', c='black', s=50, label='All')
+    ax.scatter( x, y, marker='D', c='black', s=150, label='All')
     ax.annotate('All', (x, y), fontsize=fs)
     xmin, xmax = ax.get_xlim()
     lw = 1
@@ -226,40 +226,9 @@ def make_stat_plots(stats,avstats,obx,metric,var,avtime='hourly',o3mda8=None):
     ax.xaxis.label.set_fontsize(fs)
     ax.yaxis.label.set_fontsize(fs)
     ax.tick_params(labelsize=fs)
-    fig.savefig('../figs/%s.%s' % (fname,frmt), format=frmt, bbox_inches='tight')
+    fig.savefig('../figs/%s_%s.%s' % (fname,season,frmt), format=frmt, bbox_inches='tight')
     plt.close()
     del(goal)
     del(criteria)
 
 
-if __name__ == '__main__':
-    import glob
-    import mpe_stats as mpe
-    fo = mpe.get_obs(season='JFM')
-    cfiles = glob.glob('CCTM_D502a_Linux3_x86_64intel.ACONC.'+\
-                       'BOGOTA_bc2014v3_2014010[123].nc')
-    mfiles = glob.glob('METCRO2D_WRFd04v4n_2014-01-0[123]')
-    cfiles.sort()
-    mfiles.sort()
-    fc = mpe.get_cmaq(cfiles)
-    fm = mpe.get_met(mfiles)
-    obx,modx,metx = mpe.pair_data(fo,fc,fm)
-    #print(obx)
-    stats = mpe.calc_stats(obx, modx)
-    avstats = mpe.stats_all_sites(obx, modx)
-    obx24, modx24 = mpe.make_24h_avg(obx,modx)
-    avstats24 = mpe.stats_all_sites(obx24, modx24)
-    make_scatter(obx,modx,'PM25', 'pm25scatter')
-    make_scatter(obx24, modx24, 'PM25', 'pm25scatter24hr')
-    m, o3mda8, o3mda8ake_stat_plots(stats,avstats24,obx24,'MFE','PM25',avtime='24h')
-    make_stat_plots(stats,avstats24,obx24,'MFB','PM25',avtime='24h')
-    make_stat_plots(stats,avstats,obx,'MFE','PM25',avtime='hourly')
-    make_stat_plots(stats,avstats,obx,'MFB','PM25',avtime='hourly')
-#    make_stat_plots(stats,avstats,obx,'NME','PM25',avtime='hourly')
-#    make_stat_plots(stats,avstats,obx,'NME','O3',avtime='hourly')
-#    make_stat_plots(stats,avstats,obx,'NMB','PM25',avtime='hourly')
-#    make_stat_plots(stats,avstats,obx,'NMB','O3',avtime='hourly')
-#    make_stat_plots(stats,avstats,obx,'r2','PM25',avtime='hourly')
-#    make_stat_plots(stats,avstats,obx,'r2','O3',avtime='hourly')
-#    make_stat_plots(stats,avstats,obx,'NME','SO2',avtime='hourly')
-#    make_stat_plots(stats,avstats,obx,'r2','PM25',avtime='24h')

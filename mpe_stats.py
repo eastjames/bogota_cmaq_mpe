@@ -29,11 +29,10 @@ def get_obs(season=None, avtime=None):
     Add path to file
     '''
  
-    #prefix = '/mnt/raid2/Shared/Bogota/observations/ground/' # Bezier
-#    prefix = '/ncsu/volume1/fgarcia4/Bogota/observations/ground/' #Henry2
+    prefix = '/mnt/raid2/Shared/Bogota/observations/ground/' # Bezier
+    #prefix = '/ncsu/volume1/fgarcia4/Bogota/observations/ground/' #Henry2
+    #prefix = '/rsstu/users/f/fgarcia4/garcia_grp/Bogota/data_eval/observations/ground/' #Henry2
     #prefix = '../obs/' # James Macbook
-    prefix = os.path.dirname(os.path.realpath(__file__)) # James Macbook
-    prefix = prefix + '/../obs/'# James Macbook
     if season and avtime:
         filename = prefix+'RMCAB_2014_' + season + '-' + avtime + '.nc'
     elif not season and avtime:
@@ -45,6 +44,10 @@ def get_obs(season=None, avtime=None):
     print(filename)
     f = xr.open_mfdataset(filename)
     f = f.rename({'PM10STD':'PM10', 'PM25STD':'PM25'})
+    try:
+        f = f.rename({'TSTEP':'time'})
+    except ValueError:
+        pass
     f.load()
 
     # Remove Suba
@@ -58,11 +61,11 @@ def get_obs(season=None, avtime=None):
     f.attrs.update({'SITENAMES':sites})
 
     return f
-	
+
 def get_met(filelist):
     '''
-    filelist = python list of filenames or string of 1 file
-    returns a xarray dataset of desired met vars
+    filelist = python list of METCRO2D filenames or string of 1 file
+    returns xarray dataset of desired met vars
     '''
     flist = []
     if type(filelist) == str:
@@ -91,12 +94,14 @@ def get_met(filelist):
     # need to set time coords
 
 
-def get_ad(filelist):
+def get_ad(filelist,cmqversion):
     '''
     filelist = python list of filenames or string of 1 file
     returns a xarray dataset of desired ad vars
     '''
-    advars = ['PM25AT','PM25AC', 'PM25CO']    
+    advars = ['PM25AT','PM25AC','PM25CO']    
+    if cmqversion == 'v53':
+        advars = advars + ['PM10AT','PM10AC','PM10CO']
     flist = []
     if type(filelist) == str:
         flist.append(filelist)
@@ -115,12 +120,21 @@ def get_ad(filelist):
     
     return adx
 
-def get_cmaq_gridded(cfilelist, adflist):
+def get_cmaq_gridded(cfilelist, adflist, cmqversion='v502', more_spc=[]):
     '''
     cfilelist = python list of ACONC filenames
     adflist = list of AERODIAM files
+    more_spc = list of additional species to aggregate
+               Currently limited to PM25_NH4, PM25_NO3, PM25_SO4
+               Edit pm_aggregator.py to change to add capability
+    cmqversion = version of CMAQ for PM25 species definition.
+                 'v502' or 'v53' only
     returns a gridded cmaq object with important vars aggregated
     '''
+    if cmqversion == '':
+        raise ValueError('Argument cmqversion not specified, must be "v502" or "v53"')
+    print('\n \n \nWARNING: CMAQ data is being processed as CMAQ%s'%cmqversion)
+    print('If using different version, CHANGE NOW!\n \n \n') 
     d = xr.open_mfdataset(cfilelist, concat_dim='TSTEP')
     d = d.sel(LAY=0) # get only bottom layer
 
@@ -128,22 +142,29 @@ def get_cmaq_gridded(cfilelist, adflist):
     obspcs, modspcs = get_spcs()
     pmspcs = []
     if ('PM10' in modspcs) or ('PM25' in modspcs):
-        pmspcs = pm.get_spcs()
+        if cmqversion == 'v502':
+            pmspcs = pm.get_spcs()
+        elif cmqversion == 'v53':
+            pmspcs = pm.get_spcsv53()
         if 'PM25' in modspcs:
             pm_25 = True
             modspcs.remove('PM25')
         if 'PM10' in modspcs:
             pm_10 = True
             modspcs.remove('PM10')
-    allspcs = modspcs + pmspcs
+    allspcs = modspcs + pmspcs + more_spc
     
     if 'NOx' in modspcs:
         d['NOx'] = d.NO2 + d.NO
         units = {'units':d.NO.units}
         d['NOx'].attrs.update(units) #ppmV
-    
-    if pm_25 or pm_10:
+
+    dset = xr.merge([d[var] for var in modspcs]) 
+
+    if pm_25 or pm_10 or more_spc:
         advars = ['PM25AT','PM25AC', 'PM25CO']
+        if cmqversion == 'v53':
+            advars = advars + ['PM10AT','PM10AC','PM10CO']
         flist = []
         if type(adflist) == str:
             flist.append(adflist)
@@ -153,11 +174,35 @@ def get_cmaq_gridded(cfilelist, adflist):
         f = f.sel(LAY=0)
         fvars = [ f[v] for v in advars ]
         ad = xr.merge(fvars)
-        PM25, PM10 = pm.pm_total2(d, ad)
-        PM25 = PM25.to_dataset(name='PM25')
-        PM10 = PM10.to_dataset(name='PM10')
-        dset = xr.merge([d[var] for var in modspcs]+[PM25, PM10])
-        
+        if pm_25 or pm_10:
+            if cmqversion == 'v502':
+                PM25, PM10 = pm.pm_total2(d, ad)
+            elif cmqversion == 'v53':
+                PM25, PM10 = pm.pm_totalv53(d, ad)
+            PM25 = PM25.to_dataset(name='PM25')
+            PM10 = PM10.to_dataset(name='PM10')
+            dset = xr.merge([dset, PM25, PM10])
+        if 'PM25_NH4' in allspcs:
+            PM25_NH4 = pm.pm25_nh4(d, ad)
+            PM25_NH4 = PM25_NH4.to_dataset(name='PM25_NH4')
+            dset = xr.merge([dset, PM25_NH4])
+        if 'PM25_NO3' in allspcs:
+            PM25_NO3 = pm.pm25_no3(d, ad)
+            PM25_NO3 = PM25_NO3.to_dataset(name='PM25_NO3')
+            dset = xr.merge([dset, PM25_NO3])
+        if 'PM25_SO4' in allspcs:
+            PM25_SO4 = pm.pm25_so4(d, ad)
+            PM25_SO4 = PM25_SO4.to_dataset(name='PM25_SO4')
+            dset = xr.merge([dset, PM25_SO4])
+    
+ 
+    if type(cfilelist) == str:
+        t1 = pd.to_datetime(cfilelist[-11:-3]) #YYYMMDD string from file name 
+    else:
+        t1 = pd.to_datetime(cfilelist[0][-11:-3]) #YYYMMDD string from file name
+    dates = pd.date_range(start=t1,periods=len(f.TSTEP.values),freq='H')
+    dset = dset.assign_coords(time=dates)
+ 
     #if type(cfilelist) == str:
         #t1 = pd.to_datetime(cfilelist[-11:-3]) #YYYMMDD string from file name 
     #else:
@@ -185,17 +230,25 @@ def get_cmaq_gridded(cfilelist, adflist):
  
     # Misc attributes
     dset.attrs['SDATE'] = d.SDATE
+    dset.attrs['cmqversion']=cmqversion
 
     del(d)
     
     return dset
 
-def get_cmaq(cfilelist, adflist):
+def get_cmaq(cfilelist, adflist, cmqversion = 'v502', more_spc=[]):
     '''
     cfilelist = python list of ACONC filenames
     adflist = list of AERODIAM files
+    cmqversion = version of CMAQ for PM25 species definition.
+                 'v502' or 'v53' only
     returns a monet cmaq object with important vars aggregated
     '''
+    if cmqversion == '':
+        raise ValueError('Argument cmqversion not specified, must be "v502" or "v53"')
+    print('\n \n \nWARNING: CMAQ data is being processed as CMAQ%s'%cmqversion)
+    print('If using different version, CHANGE NOW!\n \n \n') 
+
     f = xr.open_mfdataset(cfilelist, concat_dim='TSTEP')
 
     mod = []
@@ -203,7 +256,10 @@ def get_cmaq(cfilelist, adflist):
     obspcs, modspcs = get_spcs()
     pmspcs = []
     if ('PM10' in modspcs) or ('PM25' in modspcs):
-        pmspcs = pm.get_spcs()
+        if cmqversion == 'v502':
+            pmspcs = pm.get_spcs()
+        elif cmqversion == 'v53':
+            pmspcs = pm.get_spcsv53()
         if 'PM25' in modspcs:
             pm_25 = True
             modspcs.remove('PM25')
@@ -227,21 +283,54 @@ def get_cmaq(cfilelist, adflist):
     modx = modx.transpose( 'time', 'site' )
     del(l)
     del(mod)
+    #modx = xr.merge([modx[var] for var in modspcs])
 
-    if pm_25 or pm_10:
-        adx = get_ad(adflist)
-        PM25, PM10 = pm.pm_total2(modx, adx)
-        PM25 = PM25.to_dataset(name='PM25')
-        PM10 = PM10.to_dataset(name='PM10')
-        modx = xr.merge([modx[var] for var in modspcs]+[PM25, PM10])
-        
+    if pm_25 or pm_10 or more_spc:
+        adx = get_ad(adflist,cmqversion)
+        if pm_25 or pm_10:
+            if cmqversion == 'v502':
+                PM25, PM10 = pm.pm_total2(modx, adx)
+            elif cmqversion == 'v53':
+                PM25, PM10 = pm.pm_totalv53(modx, adx)
+            PM25 = PM25.to_dataset(name='PM25')
+            PM10 = PM10.to_dataset(name='PM10')
+            modx = xr.merge([modx, PM25, PM10])
+            modspcs.append('PM25')
+            modspcs.append('PM10')
+        if 'PM25_NH4' in more_spc:
+            PM25_NH4 = pm.pm25_nh4(modx, adx)
+            PM25_NH4 = PM25_NH4.to_dataset(name='PM25_NH4')
+            modx = xr.merge([modx, PM25_NH4])
+            modspcs.append('PM25_NH4')
+        if 'PM25_NO3' in more_spc:
+            PM25_NO3 = pm.pm25_no3(modx, adx)
+            PM25_NO3 = PM25_NO3.to_dataset(name='PM25_NO3')
+            modx = xr.merge([modx, PM25_NO3])
+            modspcs.append('PM25_NO3')
+        if 'PM25_SO4' in more_spc:
+            PM25_SO4 = pm.pm25_so4(modx, adx)
+            PM25_SO4 = PM25_SO4.to_dataset(name='PM25_SO4')
+            modx = xr.merge([modx, PM25_SO4])
+            modspcs.append('PM25_SO4')
+        if 'PM_ANAI' in more_spc:
+            PM_ANAI = pm.pm25_anai(modx,adx)
+            PM_ANAI = PM_ANAI.to_dataset(name='PM_ANAI')
+            modx = xr.merge([modx, PM_ANAI])
+            modspcs.append('PM_ANAI')
+        if 'PM_AOTHRI' in more_spc:
+            PM_AOTHRI = pm.pm25_aothri(modx,adx)
+            PM_AOTHRI = PM_AOTHRI.to_dataset(name='PM_AOTHRI')
+            modx = xr.merge([modx, PM_AOTHRI])
+            modspcs.append('PM_AOTHRI')
+
+    modx = xr.merge([modx[var] for var in modspcs])
+
     if type(cfilelist) == str:
         t1 = pd.to_datetime(cfilelist[-11:-3]) #YYYMMDD string from file name 
     else:
         t1 = pd.to_datetime(cfilelist[0][-11:-3]) #YYYMMDD string from file name
     dates = pd.date_range(start=t1,periods=len(f.TSTEP.values),freq='H')
     modx = modx.assign_coords(time=dates)
-    modx = modx.assign_attrs({'SDATE':f.SDATE})
     
     #fix units
     for var in ['SO2','O3','NOx']:
@@ -249,13 +338,44 @@ def get_cmaq(cfilelist, adflist):
             modx[var] = modx[var]*1e3 #ppm to ppb
             modx[var] = modx[var].assign_attrs(units='ppb') 
     
-    del(f)
     
+    # This part to add Bogota city average dataarray
+    # to the xarray dataset object
+    #prefix = '/mnt/raid2/Shared/Bogota/data_eval/scripts/bogota_cmaq_mpe/'
+    prefix = os.path.dirname(os.path.realpath(__file__)) # cwd for this script
+    bog_array = xr.open_dataset(prefix+'/bogota_area_cells.nc')
+    bog_array = bog_array.bogota_city_cell
+    bog_array.load()
+
+    f = f.sel(LAY=0)
+
+    adf = xr.open_mfdataset(adflist, concat_dim='TSTEP')
+    adf = adf.sel(LAY=0) 
+    advars = ['PM25AT','PM25AC', 'PM25CO']
+    fvars = [ adf[v] for v in advars ]
+    ad = xr.merge(fvars)
+
+    if pm_25:
+        if cmqversion == 'v502':
+            PM25, PM10 = pm.pm_total2(f, adf)
+        elif cmqversion == 'v53':
+            PM25, PM10 = pm.pm_totalv53(f, adf)
+
+    a1 = PM25*bog_array.rename({'lat':'ROW','lon':'COL'})
+    a2 = a1.sum(dim=('ROW','COL'))
+    bog_avg = a2/bog_array.sum()
+    bog_avg = bog_avg.to_dataset(name='bog_avg_PM25')
+    bog_avg = bog_avg.rename({'TSTEP':'time'})
+
+    modx = xr.merge([modx,bog_avg])    
+    modx.attrs['cmqversion']=cmqversion
+    modx.attrs['SDATE']=f.SDATE
+    del(f)
     return modx
 
 
 
-def pair_data(obs, modx, metx):
+def pair_data(obs, modx, metx, metfullszn=True):
     '''
     statistic = NME, NMB, r2
     dates optional if not entire dataset
@@ -275,16 +395,19 @@ def pair_data(obs, modx, metx):
     print('start = %d, number of hours = %d' % (shour, nhours))
 
     # get all obs vals and create xarray dataset for them
-    obx = xr.merge([obs[spc].sel(TSTEP=slice(shour,shour+nhours)) for spc in obspcs])
+    obx = xr.merge([obs[spc].isel(time=slice(shour,shour+nhours)) for spc in obspcs])
     print(obx)
     obx = obx.assign_coords(time=modx.time)
-    obx = obx.rename({'TSTEP':'time', 'points':'site'})
+    obx = obx.rename({'points':'site'})
     obx = obx.transpose( 'time', 'site' )
  
     metx.load()
     modx.load()
     obx.load()
     obx.attrs = obs.attrs
+    if metfullszn == True:
+        if modx.cmqversion == 'v53': # Do this for v53 when METCRO2D file has entire season
+            metx = metx.sel(time=slice(shour,shour+nhours))
     metx = metx.assign_coords(time=modx.time)
     # Set PM10 and PM25 to std
     std = ['PM10','PM25']
@@ -424,7 +547,7 @@ def stats_all_sites( obx, modx ):
 
 def plot_scatter( obx, modx ):
     if not list(obx.keys()) == list(modx.keys()):
-        raise SystemExit('Modeled and observed dataset variables do not match')
+        raise ValueError('Modeled and observed dataset variables do not match')
     obx24, modx24 = make_24h_avg(obx,modx)
     for var in list(obx.keys()):
         # hourly
@@ -443,9 +566,9 @@ def plot_scatter( obx, modx ):
 #                print(modx24)
             mp.make_scatter(obx24, modx24, var, fname24)
 
-def plot_stats( obx, modx ):
+def plot_stats( obx, modx, season):
     if not list(obx.keys()) == list(modx.keys()):
-        raise SystemExit('Modeled and observed dataset variables do not match')
+        raise ValueError('Modeled and observed dataset variables do not match')
     stats = calc_stats( obx, modx )
     obx24, modx24 = make_24h_avg(obx, modx)
     avstats = stats_all_sites( obx, modx )
@@ -457,22 +580,23 @@ def plot_stats( obx, modx ):
             # hourly
             avtime = 'hourly'
             if not np.isnan( stats[metric].loc[:,var,avtime] ).all():
-                mp.make_stat_plots(stats, avstats, obx, metric, var, avtime)
+                mp.make_stat_plots(stats, avstats, obx, metric, var,season, avtime)
             # 24 hour avg
             avtime = '24h/mda8'
             if var=='O3':
                 #stuff
                 if not np.isnan( stats[metric].loc[:,var,avtime] ).all():
-                    mp.make_stat_plots(stats, avstats24, obx, metric, var, 'mda8', o3mda8)               
+                    mp.make_stat_plots(stats, avstats24, obx, metric, var,season, 'mda8', o3mda8)               
             else:
                 if not np.isnan( stats[metric].loc[:,var,avtime] ).all():
-                    mp.make_stat_plots(stats, avstats24, obx24, metric, var, '24h')
+                    mp.make_stat_plots(stats, avstats24, obx24, metric, var,season, '24h')
             
 def make_24h_avg(obx, modx):
     obx24 = obx.resample(time='D', keep_attrs=True).mean()
     obx24.attrs = obx.attrs
     for var in list(obx.keys()):
-        obx24[var].attrs = obx[var].attrs
+        if not var == 'time_bounds':
+            obx24[var].attrs = obx[var].attrs
     modx24 = modx.resample(time='D', keep_attrs=True).mean()
     return obx24, modx24
 
@@ -525,17 +649,3 @@ def calc_MFE(mod, obs):
     '''
     return (1/obs.count()) * np.sum( np.abs(mod-obs)/((mod+obs)/2) ) * 100
 
-
-if __name__ == '__main__':
-
-    file = 'CCTM_D502a_Linux3_x86_64intel.ACONC.BOGOTA_bc2014v3_20140107.nc'
-    fc = get_cmaq(file)
-    fo = get_obs(season='JFM')
-    fm = get_met('METCRO2D_WRFd04v4n_2014-01-07')
-    obx, modx, metx = pair_data(fo, fc, fm)
-    stats = calc_stats(obx, modx)
-    plot_scatter( obx, modx )
-    plot_stats( obx, modx )
-
-    
-    
