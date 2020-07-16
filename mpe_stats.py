@@ -4,6 +4,7 @@ import xarray as xr
 import make_plots as mp
 import pm_aggregator as pm
 import pandas as pd
+import os
 
 def ob_row_col():
     # obcol and obrow are 14 observation site locations
@@ -30,7 +31,9 @@ def get_obs(season=None, avtime=None):
  
     #prefix = '/mnt/raid2/Shared/Bogota/observations/ground/' # Bezier
 #    prefix = '/ncsu/volume1/fgarcia4/Bogota/observations/ground/' #Henry2
-    prefix = '../obs/' # James Macbook
+    #prefix = '../obs/' # James Macbook
+    prefix = os.path.dirname(os.path.realpath(__file__)) # James Macbook
+    prefix = prefix + '/../obs/'# James Macbook
     if season and avtime:
         filename = prefix+'RMCAB_2014_' + season + '-' + avtime + '.nc'
     elif not season and avtime:
